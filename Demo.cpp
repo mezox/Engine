@@ -6,6 +6,15 @@
 #include "RendererVK.h"
 #include "BufferImpl.h"
 
+#ifdef WIN32
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+#include <vulkan/vulkan_win32.h>
+
+#undef min
+#undef max
+#endif
+
 namespace  {
     uint32_t width = 1600;
     uint32_t height = 990;
@@ -68,6 +77,31 @@ void DemoApplication::SetupDebugCallback()
 
 void DemoApplication::initVulkan()
 {
+#ifdef WIN32
+	glfwInit();
+
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+	window = glfwCreateWindow(1920, 1080, "Vulkan", nullptr, nullptr);
+
+	const std::vector<const char*> extensions =
+	{
+		"VK_EXT_debug_report",
+		"VK_KHR_surface",
+		"VK_KHR_win32_surface"
+	};
+#else
+	const std::vector<const char*> extensions =
+	{
+		"VK_EXT_debug_report",
+		"VK_MVK_macos_surface",
+		"VK_KHR_surface",
+		"VK_MVK_macos_surface"
+	};
+#endif
+
+
     const std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
@@ -90,16 +124,9 @@ void DemoApplication::initVulkan()
     appInfo.apiVersion = VK_API_VERSION_1_0;
     
     const std::vector<const char*> validationLayers = {
-        "VK_LAYER_LUNARG_standard_validation"
+        "VK_LAYER_LUNARG_standard_validation",
     };
     
-    const std::vector<const char*> extensions =
-    {
-        "VK_EXT_debug_report",
-        "VK_MVK_macos_surface",
-        "VK_KHR_surface",
-        "VK_MVK_macos_surface"
-    };
     
     const std::vector<const char*> reqDeviceExtensions
     {
@@ -200,8 +227,23 @@ void DemoApplication::initVulkan()
     }
     
     mGraphicsQueue = mDevice.getQueue(0, 0);
-    
-    VkMacOSSurfaceCreateInfoMVK surfaceCreateInfo;
+
+#ifdef WIN32
+	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.hwnd = glfwGetWin32Window(window);
+	surfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
+
+	auto CreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR");
+
+	if (!CreateWin32SurfaceKHR || CreateWin32SurfaceKHR(instance, &surfaceCreateInfo, nullptr, &surface) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create window surface!");
+	}
+
+	bool isSupported{ false };
+	auto res = mPhysicalDevice.getSurfaceSupportKHR(0, surface);
+#else
+	VkMacOSSurfaceCreateInfoMVK surfaceCreateInfo;
     surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
     surfaceCreateInfo.pNext = nullptr;
     surfaceCreateInfo.pView = view;
@@ -212,7 +254,8 @@ void DemoApplication::initVulkan()
     if (!CreateMacOSSurfaceKHR || CreateMacOSSurfaceKHR(VkInstance(instance), &surfaceCreateInfo, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
-    
+#endif
+
     if(1 /*device extension for swapchain is support*/)
     {
         QuerySwapChainProperties();
@@ -225,7 +268,7 @@ void DemoApplication::initVulkan()
         
         if(mEnableTrippleBuffering)
         {
-            if(imageCount > mCapabilities.maxImageCount)
+            if(mCapabilities.maxImageCount > 0 && imageCount > mCapabilities.maxImageCount)
             {
                 imageCount = mCapabilities.maxImageCount;
             }
@@ -273,9 +316,14 @@ void DemoApplication::initVulkan()
         }
     }
     
-    const auto vertSh = bundlePath("vert");
-    const auto fragSh = bundlePath("frag");
-    
+#ifdef WIN32
+	const auto vertSh = std::string("vert.spv");
+	const auto fragSh = std::string("frag.spv");
+#else
+	const auto vertSh = bundlePath("vert");
+	const auto fragSh = bundlePath("frag");
+#endif
+
     const auto vertShaderCode = readFile(vertSh);
     const auto fragShaderCode = readFile(fragSh);
     

@@ -9,6 +9,10 @@
 
 #include "RendererVK.h"
 
+#ifdef WIN32
+#include <GLFW/glfw3.h>
+#endif
+
 namespace detail
 {
     vk::DeviceQueueCreateInfo CreateQueues(const uint32_t familyIndex, const std::vector<float>& priorities);
@@ -36,6 +40,11 @@ private:
 public:
     void* view{ nullptr };
     
+
+#ifdef WIN32
+	GLFWwindow* window;
+#endif
+
 private:
     vk::Instance instance;
     VkDebugReportCallbackEXT callback;

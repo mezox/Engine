@@ -14,7 +14,7 @@ namespace renderer
         
     public:
         Buffer() = default;
-        Buffer(std::shared_ptr<vk::Device> device,  const vk::PhysicalDevice& physicalDevice, const vk::CommandPool& cmdPool, const vk::Queue& queue, const BufferDesc& desc, const const BufferData& data);
+        Buffer(std::shared_ptr<vk::Device> device,  const vk::PhysicalDevice& physicalDevice, const vk::CommandPool& cmdPool, const vk::Queue& queue, const BufferDesc& desc, const BufferData& data);
         
         void CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size) override final;
         
