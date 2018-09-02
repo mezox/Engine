@@ -1,109 +1,63 @@
 cmake_minimum_required(VERSION 3.7)
-project(TestApp)
+project(Engine)
 
 # compiler settings
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
-# include directories
-include_directories(./)
-include_directories(renderer/interface)
-include_directories(renderer/include)
+# generuje interface a install commandy pre sdk modul
+macro(mark_internal_sdk_module_target)
+	target_include_directories(${_target} INTERFACE
+		${ARGN}
+	)
 
-find_package(vulkan REQUIRED)
+	install(
+		TARGETS ${_target}
+		ARCHIVE DESTINATION lib
+		LIBRARY DESTINATION lib
+	)
 
-# external libs
+	set(LOCAL_INTERFACE_INCLUDE_DIRS)
+
+	#treba na koniec kazdeho adresara pripojit delimiter aby sa spravne urcila relativna path, vid manual k install DIRECTORY
+	FOREACH(_item ${ARGN})
+		string(CONCAT _local_dir ${_item} "/")
+		list(APPEND LOCAL_INTERFACE_INCLUDE_DIRS ${_local_dir})
+	ENDFOREACH()
+
+	install(
+		DIRECTORY ${LOCAL_INTERFACE_INCLUDE_DIRS} DESTINATION include COMPONENT internal_sdk FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+	)
+endmacro()
+
+macro(mark_internal_module_target)
+	message(STATUS "Mark internal module: ${_target} ${ARGN}")
+
+	mark_internal_sdk_module_target(${_target} ${ARGN})
+
+	if(BUILD_SHARED_LIBS)
+		install(
+			TARGETS ${_target}
+			RUNTIME DESTINATION bin
+		)
+	endif()
+
+	if (TARGET_WINDOWS)
+		install(FILES $<TARGET_PDB_FILE:${_target}> DESTINATION bin OPTIONAL)
+	endif()
+endmacro()
+
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/Bin/${CMAKE_BUILD_TYPE} CACHE PATH "Library output path")
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/Bin/${CMAKE_BUILD_TYPE} CACHE PATH "Executable output path")
+
+message("Library output path: " ${LIBRARY_OUTPUT_PATH})
+message("Executable output path: " ${EXECUTABLE_OUTPUT_PATH})
+
 if(WIN32)
-add_subdirectory(external/glfw)
-
-include_directories(external/glfw/include)
-
-set(WIN32_APPLICATION_HEADERS
-	${CMAKE_CURRENT_SOURCE_DIR}/Demo.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/files.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Vertex.h
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/interface/Buffer.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/include/BufferImpl.h
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/RendererVK.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector2.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector3.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector4.h
-)
-
-set(WIN32_APPLICATION_SRCS
-	${CMAKE_CURRENT_SOURCE_DIR}/App.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/Demo.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RendererVK.cpp
-
-    # Renderer
-    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/src/BufferImpl.cpp
-)
-
-set(WIN32_APPLICATION_RESOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/vert.spv
-    ${CMAKE_CURRENT_SOURCE_DIR}/frag.spv
-)
-
-add_executable(TestApp
-	${WIN32_APPLICATION_HEADERS}
-	${WIN32_APPLICATION_SRCS}
-	${WIN32_APPLICATION_RESOURCES})
-
-target_link_libraries(TestApp Vulkan::Vulkan glfw ${GLFW_LIBRARIES})
-
-else()
-#macOS
-
-set(MACOS_APPLICATION_HEADERS
-	${CMAKE_CURRENT_SOURCE_DIR}/Demo.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Application.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/DemoViewController.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/files.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Vertex.h
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/interface/Buffer.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/include/BufferImpl.h
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/RendererVK.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector2.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector3.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector4.h
-)
-
-set(MACOS_APPLICATION_SRCS
-	${CMAKE_CURRENT_SOURCE_DIR}/Demo.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/main.mm
-    ${CMAKE_CURRENT_SOURCE_DIR}/Application.mm
-    ${CMAKE_CURRENT_SOURCE_DIR}/DemoViewController.mm
-    ${CMAKE_CURRENT_SOURCE_DIR}/files.mm
-    ${CMAKE_CURRENT_SOURCE_DIR}/RendererVK.cpp
-
-    # Renderer
-    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/src/BufferImpl.cpp
-)
-
-set(MACOS_APPLICATION_RESOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/Main.storyboard
-    ${CMAKE_CURRENT_SOURCE_DIR}/vert.spv
-    ${CMAKE_CURRENT_SOURCE_DIR}/frag.spv
-)
-
-add_definitions(-DVK_USE_PLATFORM_MACOS_MVK)
-
-add_executable(TestApp MACOSX_BUNDLE
-	${MACOS_APPLICATION_HEADERS}
-	${MACOS_APPLICATION_SRCS}
-	${MACOS_APPLICATION_RESOURCES})
-
-target_link_libraries(TestApp Vulkan::Vulkan "-framework AppKit -framework QuartzCore")
-
-set_target_properties(TestApp PROPERTIES
-    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
-)
-
-set_source_files_properties(${MACOS_APPLICATION_RESOURCES} PROPERTIES
-    MACOSX_PACKAGE_LOCATION "Resources"
-)
+	set(TARGET_WINDOWS 1)
 endif()
+
+add_subdirectory(External)
+add_subdirectory(PAL)
+add_subdirectory(Renderer)
+add_subdirectory(Application)

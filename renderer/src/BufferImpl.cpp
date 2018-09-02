@@ -1,5 +1,7 @@
 #include "BufferImpl.h"
 
+#include <iostream>
+
 using namespace renderer;
 
 Buffer::Buffer(std::shared_ptr<vk::Device> device, const vk::PhysicalDevice& physicalDevice, const vk::CommandPool& cmdPool, const vk::Queue& queue, const BufferDesc& desc, const BufferData& data)
@@ -14,10 +16,12 @@ Buffer::Buffer(std::shared_ptr<vk::Device> device, const vk::PhysicalDevice& phy
         bufferInfo.usage |= vk::BufferUsageFlagBits::eVertexBuffer;
     if(desc.flags & BufferBindFlags::IndexBuffer)
         bufferInfo.usage |= vk::BufferUsageFlagBits::eIndexBuffer;
+	if (desc.flags & BufferBindFlags::UniformBuffer)
+		bufferInfo.usage |= vk::BufferUsageFlagBits::eUniformBuffer;
     
     if(desc.usage & BufferUsage::TransferDest)
         bufferInfo.usage |= vk::BufferUsageFlagBits::eTransferDst;
-    if(desc.usage & BufferUsage::TransferSrc)
+    if(desc.usage & BufferUsage::TransferSrc) 
         bufferInfo.usage |= vk::BufferUsageFlagBits::eTransferSrc;
     
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
@@ -63,6 +67,10 @@ Buffer::Buffer(std::shared_ptr<vk::Device> device, const vk::PhysicalDevice& phy
     mDevicePtr->bindBufferMemory(mBuffer, mMemory, 0);
 }
 
+Buffer::~Buffer()
+{
+}
+
 void Buffer::CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size)
 {
     vk::CommandBufferAllocateInfo allocInfo;
@@ -103,4 +111,27 @@ void Buffer::CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuff
     
     mDevicePtr->freeCommandBuffers(mCopyCommandPool, 1, &cmdBuffer);
 
+}
+
+void Buffer::Map(const uint64_t offset, const uint64_t size, void * data)
+{
+	void* dataPtr = mDevicePtr->mapMemory(mMemory, offset, size, {});
+	memcpy(dataPtr, &data, size);
+	mDevicePtr->unmapMemory(mMemory);
+}
+
+void Buffer::Release()
+{
+	if (mDevicePtr)
+	{
+		mDevicePtr->destroyBuffer(mBuffer);
+		mDevicePtr->freeMemory(mMemory);
+
+		std::cout << "Released vulkan buffer" << std::endl;
+		std::cout << "Freed vulkan buffer memory" << std::endl;
+	}
+	else
+	{
+		std::cout << "Failed to release vk::Buffer, device invalid." << std::endl;
+	}
 }
