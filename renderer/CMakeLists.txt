@@ -25,6 +25,7 @@ set(RENDERER_PRIVATE_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/RendererVK.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Texture.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Object3D.h
+	${CMAKE_CURRENT_SOURCE_DIR}/include/RendererResourceStateVK.h
 
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Demo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/files.h
@@ -43,6 +44,7 @@ set(RENDERER_PRIVATE_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Demo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Object3D.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/RendererResourceStateVK.cpp
 )
 
 set(RENDERER_RESOURCES

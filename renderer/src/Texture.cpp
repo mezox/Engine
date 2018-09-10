@@ -46,3 +46,8 @@ void renderer::Texture::ClearLocalData()
 {
 	stbi_image_free(mData);
 }
+
+void Texture::ReleaseFromServer()
+{
+	mTexture.reset();
+}

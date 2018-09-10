@@ -5,7 +5,23 @@
 
 namespace renderer
 {
-	class Texture;
+	class RendererTexture
+	{
+	public:
+		virtual ~RendererTexture() = default;
+	};
+
+	enum class ImageFormat
+	{
+		RGBA8,
+		DEPTH
+	};
+
+	enum class ImageUsage
+	{
+		Sampled,
+		DepthAttachment
+	};
 
 	class Renderer
 	{

@@ -1,29 +1,16 @@
 #pragma once
 
 #include <string>
-#include <vulkan/vulkan.hpp>
-
-#include "RendererVK.h"		// TODO: Get rid of this, its here only because of formats and usages
+#include "Renderer.h"		// TODO: Get rid of this, its here only because of formats and usages
 
 namespace renderer
 {
-	class RendererTexture
-	{
-	public:
-		virtual ~RendererTexture() = default;
-	};
-
-	class RendererTextureVK : public RendererTexture
-	{
-	public:
-		vk::Image image;
-		vk::ImageView imageView;
-		vk::DeviceMemory memory;
-		vk::Sampler sampler;
-	};
+	class RendererVK;
 
 	class Texture
 	{
+		//DISALLOW_COPY_AND_ASSIGN(Texture)
+
 	public:
 		Texture() = default;
 		Texture(const std::shared_ptr<RendererVK>& renderer, const std::string& path);
@@ -40,6 +27,7 @@ namespace renderer
 		const ImageUsage GetUsage() const { return mUsage; }
 
 		void ClearLocalData();
+		void ReleaseFromServer();
 
 	private:
 		std::shared_ptr<RendererVK> mRenderer;

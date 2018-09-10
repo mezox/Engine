@@ -63,6 +63,5 @@ namespace renderer
         
         //virtual void Map() {}
         //virtual void Unmap() {}
-        //virtual void* GetHandle() const { return nullptr; }
     };
 }

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.7)
 project(Application)
 
+
+find_package(vulkan REQUIRED)
+
 # include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/win/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})

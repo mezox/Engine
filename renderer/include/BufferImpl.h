@@ -2,7 +2,7 @@
 
 #include "Buffer.h"
 #include "Vertex.h"
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <memory>
 
@@ -14,21 +14,20 @@ namespace renderer
         
     public:
         Buffer() = default;
-        Buffer(std::shared_ptr<vk::Device> device,  const vk::PhysicalDevice& physicalDevice, const vk::CommandPool& cmdPool, const vk::Queue& queue, const BufferDesc& desc, const BufferData& data);
+        Buffer(const VkCommandPool& cmdPool, const VkQueue& queue, const BufferDesc& desc, const BufferData& data);
 		~Buffer();
         
         void CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size) override final;
 		void Map(const uint64_t offset, const uint64_t size, void* data) override final;
 		void Release() override final;
         
-        const vk::Buffer& GetVulkanBuffer() const { return mBuffer; }
-        const vk::DeviceMemory& GetVulkanMemory() const { return mMemory; }
+        const VkBuffer& GetVulkanBuffer() const { return mBuffer; }
+        const VkDeviceMemory& GetVulkanMemory() const { return mMemory; }
         
     private:
-        std::shared_ptr<vk::Device> mDevicePtr;
-        vk::Buffer mBuffer;
-        vk::DeviceMemory mMemory;
-        vk::CommandPool mCopyCommandPool;
-        vk::Queue mQueue;
+        VkBuffer mBuffer;
+        VkDeviceMemory mMemory;
+        VkCommandPool mCopyCommandPool;
+        VkQueue mQueue;
     };
 }

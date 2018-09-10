@@ -1,7 +1,8 @@
 #include "Demo.h"
 #include <iostream>
 
-int main() {
+int main()
+{
 	DemoApplication app;
 
     try

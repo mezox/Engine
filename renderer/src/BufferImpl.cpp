@@ -1,36 +1,41 @@
 #include "BufferImpl.h"
 
 #include <iostream>
+#include <PAL/Graphics/LowVK.h>
 
 using namespace renderer;
 
-Buffer::Buffer(std::shared_ptr<vk::Device> device, const vk::PhysicalDevice& physicalDevice, const vk::CommandPool& cmdPool, const vk::Queue& queue, const BufferDesc& desc, const BufferData& data)
-    : mDevicePtr(std::move(device))
-    , mCopyCommandPool(cmdPool)
+Buffer::Buffer(const VkCommandPool& cmdPool, const VkQueue& queue, const BufferDesc& desc, const BufferData& data)
+    : mCopyCommandPool(cmdPool)
     , mQueue(queue)
 {
-    vk::BufferCreateInfo bufferInfo;
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = data.size;
     
     if(desc.flags & BufferBindFlags::VertexBuffer)
-        bufferInfo.usage |= vk::BufferUsageFlagBits::eVertexBuffer;
+        bufferInfo.usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     if(desc.flags & BufferBindFlags::IndexBuffer)
-        bufferInfo.usage |= vk::BufferUsageFlagBits::eIndexBuffer;
+        bufferInfo.usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	if (desc.flags & BufferBindFlags::UniformBuffer)
-		bufferInfo.usage |= vk::BufferUsageFlagBits::eUniformBuffer;
+		bufferInfo.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     
     if(desc.usage & BufferUsage::TransferDest)
-        bufferInfo.usage |= vk::BufferUsageFlagBits::eTransferDst;
+        bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     if(desc.usage & BufferUsage::TransferSrc) 
-        bufferInfo.usage |= vk::BufferUsageFlagBits::eTransferSrc;
+        bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     
-    bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     //bufferInfo.flags; // The flags parameter is used to configure sparse buffer memory.
     
-    mBuffer = mDevicePtr->createBuffer(bufferInfo);
+	LowVK::CreateBuffer(&bufferInfo, nullptr, &mBuffer);
+
+	auto physicalDevicePtr = LowVK::GetPhysical();
     
-    auto findMemoryType = [&physicalDevice](uint32_t typeFilter, const vk::MemoryPropertyFlags properties) -> uint32_t {
-        vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
+    auto findMemoryType = [](uint32_t typeFilter, const VkMemoryPropertyFlags properties) -> uint32_t {
+		VkPhysicalDeviceMemoryProperties memoryProperties;
+		
+		LowVK::GetPhysicalDeviceMemoryProperties(&memoryProperties);
         
         for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
         {
@@ -51,20 +56,22 @@ Buffer::Buffer(std::shared_ptr<vk::Device> device, const vk::PhysicalDevice& phy
      on bufferInfo.usage and bufferInfo.flags.
      memoryTypeBits:    Bit field of the memory types that are suitable for the buffer.
      */
-    vk::MemoryRequirements memoryRequirements = mDevicePtr->getBufferMemoryRequirements(mBuffer);
+	VkMemoryRequirements memoryRequirements;
+	LowVK::GetBufferMemoryRequirements(mBuffer, &memoryRequirements);
     
-    vk::MemoryPropertyFlags memoryFlags;
+    VkMemoryPropertyFlags memoryFlags;
     if(desc.usage & renderer::BufferUsage::Staging)
-        memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        memoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     else
-        memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     
-    vk::MemoryAllocateInfo allocInfo;
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memoryRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, memoryFlags);
-    mMemory = mDevicePtr->allocateMemory(allocInfo);
-    
-    mDevicePtr->bindBufferMemory(mBuffer, mMemory, 0);
+
+	LowVK::AllocateMemory(&allocInfo, nullptr, &mMemory);
+	LowVK::BindBufferMemory(mBuffer, mMemory, 0);
 }
 
 Buffer::~Buffer()
@@ -73,20 +80,22 @@ Buffer::~Buffer()
 
 void Buffer::CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size)
 {
-    vk::CommandBufferAllocateInfo allocInfo;
-    allocInfo.level = vk::CommandBufferLevel::ePrimary;
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandPool = mCopyCommandPool;
     allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer cmdBuffer;
+	LowVK::AllocateCommandBuffers(&allocInfo, &cmdBuffer);
     
-    auto commandBuffers = mDevicePtr->allocateCommandBuffers(allocInfo);
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	LowVK::BeginCommandBuffer(cmdBuffer, &beginInfo);
     
-    vk::CommandBufferBeginInfo beginInfo;
-    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-    
-    auto& cmdBuffer = commandBuffers.back();
-    cmdBuffer.begin(beginInfo);
-    
-    vk::BufferCopy copyInfo;
+	VkBufferCopy copyInfo;
     copyInfo.srcOffset = srcOffset; // Optional
     copyInfo.dstOffset = dstOffset; // Optional
     copyInfo.size = size;
@@ -94,44 +103,34 @@ void Buffer::CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuff
     auto srcBufferVk = std::static_pointer_cast<Buffer>(srcBuffer);
     auto dstBufferVk = std::static_pointer_cast<Buffer>(dstBuffer);
     
-    cmdBuffer.copyBuffer(srcBufferVk->GetVulkanBuffer(), dstBufferVk->GetVulkanBuffer(), { copyInfo });
-    cmdBuffer.end();
+	LowVK::CmdCopyBuffer(cmdBuffer, srcBufferVk->GetVulkanBuffer(), dstBufferVk->GetVulkanBuffer(), { copyInfo });
+
+    LowVK::EndCommandBuffer(cmdBuffer);
     
-    std::vector<vk::CommandBuffer> cmdBuffers{ cmdBuffer };
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmdBuffer;
     
-    vk::SubmitInfo submitInfo;
-    submitInfo.commandBufferCount = static_cast<uint32_t>(cmdBuffers.size());
-    submitInfo.pCommandBuffers = cmdBuffers.data();
-    
-    mQueue.submit(1, &submitInfo, {});
-    mQueue.waitIdle();
+	LowVK::QueueSubmit(mQueue, { submitInfo }, {});
+	LowVK::QueueWaitIdle(mQueue);
     
     // We could use a fence and wait with vkWaitForFences, or simply wait for the transfer queue to become idle with vkQueueWaitIdle. A fence would allow you to schedule multiple
     // transfers simultaneously and wait for all of them complete, instead of executing one at a time. That may give the driver more opportunities to optimize.
     
-    mDevicePtr->freeCommandBuffers(mCopyCommandPool, 1, &cmdBuffer);
-
+	LowVK::FreeCommandBuffers(mCopyCommandPool, { cmdBuffer });
 }
 
 void Buffer::Map(const uint64_t offset, const uint64_t size, void * data)
 {
-	void* dataPtr = mDevicePtr->mapMemory(mMemory, offset, size, {});
+	/*void* dataPtr;
+	vkMapMemory(*mDevicePtr, mMemory, offset, size, 0, &dataPtr);
 	memcpy(dataPtr, &data, size);
-	mDevicePtr->unmapMemory(mMemory);
+	vkUnmapMemory(*mDevicePtr, mMemory);*/
 }
 
 void Buffer::Release()
 {
-	if (mDevicePtr)
-	{
-		mDevicePtr->destroyBuffer(mBuffer);
-		mDevicePtr->freeMemory(mMemory);
-
-		std::cout << "Released vulkan buffer" << std::endl;
-		std::cout << "Freed vulkan buffer memory" << std::endl;
-	}
-	else
-	{
-		std::cout << "Failed to release vk::Buffer, device invalid." << std::endl;
-	}
+	LowVK::DestroyBuffer(mBuffer, nullptr);
+	LowVK::FreeMemory(mMemory, nullptr);
 }

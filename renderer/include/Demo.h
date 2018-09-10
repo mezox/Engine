@@ -9,7 +9,7 @@
 #include <array>
 #include <memory>
 
-#include <vulkan/vulkan.hpp>
+#include <PAL/Graphics/LowVK.h>
 
 #include "RendererVK.h"
 #include "Texture.h"
@@ -29,10 +29,7 @@ public:
     void RENDERER_API draw();
     void RENDERER_API initVulkan();
     
-private:    
-    void QuerySwapChainProperties();
-    
-    vk::ShaderModule CreateShader(const std::vector<char>& sourceCode);
+private:
     
 public:
     void* view{ nullptr };
@@ -43,18 +40,17 @@ public:
 #endif
 
 private:
-	vk::Device mDevice;
+	VkDevice mDevice;
+    VkRenderPass mRenderPass;
+    VkPipelineLayout mPipelineLayout;
+    VkPipeline mGraphicsPipeline;
     
-    vk::RenderPass mRenderPass;
-    vk::PipelineLayout mPipelineLayout;
-    vk::Pipeline mGraphicsPipeline;
+    std::vector<VkFramebuffer> mSwapChainFramebuffers;
     
-    std::vector<vk::Framebuffer> mSwapChainFramebuffers;
+    std::vector<VkCommandBuffer> mCommandBuffers;
     
-    std::vector<vk::CommandBuffer> mCommandBuffers;
-    
-    vk::Semaphore mImageAvailableSemaphore;
-    vk::Semaphore mRenderFinishedSemaphore;
+    VkSemaphore mImageAvailableSemaphore;
+    VkSemaphore mRenderFinishedSemaphore;
     
     renderer::RendererVK mRenderer;
     
@@ -63,17 +59,13 @@ private:
 
 	std::vector<std::shared_ptr<renderer::IBuffer>> mUniformBuffers;
 
-	vk::DescriptorPool mDescriptorPool;
-	std::vector<vk::DescriptorSet> mDescriptorSets;
+	VkDescriptorPool mDescriptorPool;
+	std::vector<VkDescriptorSet> mDescriptorSets;
 
-	renderer::Texture mTexture;
-	renderer::Texture mDepthTexture;
+	std::unique_ptr<renderer::Texture> mTexture;
+	std::unique_ptr<renderer::Texture> mDepthTexture;
 
 	glm::vec3 mCameraPosition;
-
-	//vk::Image mDepthBufferImage;
-	//vk::DeviceMemory mDepthBufferImageMemory;
-	//vk::ImageView mDepthImageView;
     
     bool mEnableTrippleBuffering{ true };
 };

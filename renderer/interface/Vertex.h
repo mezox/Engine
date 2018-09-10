@@ -1,6 +1,8 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#include <array>
+
+#include <vulkan/vulkan.h>
 
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -29,12 +31,12 @@ public:
      It specifies the number of bytes between data entries and whether to move to the next data
      entry after each vertex or after each instance.
      */
-    static const vk::VertexInputBindingDescription getBindingDescription()
+    static const VkVertexInputBindingDescription getBindingDescription()
     {
-        vk::VertexInputBindingDescription bindingDescription;
+		VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;                                 // The binding parameter specifies the index of the binding in the array of bindings.
         bindingDescription.stride = sizeof(Vertex);                     // The stride parameter specifies the number of bytes from one entry to the next
-        bindingDescription.inputRate = vk::VertexInputRate::eVertex;
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
         return bindingDescription;
     }
     
@@ -42,22 +44,22 @@ public:
      * brief:   An attribute description struct describes how to extract a vertex attribute from a chunk of vertex
      data originating from a binding description.
      */
-    static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
     {
-        std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions;
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions;
         attributeDescriptions[0].binding = 0;                           // The binding parameter tells Vulkan from which binding the per-vertex data comes
         attributeDescriptions[0].location = 0;                          // The location parameter references the location directive of the input in the vertex shader.
-        attributeDescriptions[0].format = vk::Format::eR32G32B32Sfloat; // The format parameter implicitly defines the byte size of attribute data
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;	// The format parameter implicitly defines the byte size of attribute data
         attributeDescriptions[0].offset = offsetof(Vertex, position);   // The offset parameter specifies the number of bytes since the start of the per-vertex data to read from.
         
         attributeDescriptions[1].binding = 0;
         attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[1].offset = offsetof(Vertex, color);
 
 		attributeDescriptions[2].binding = 0;
 		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(Vertex, texCoords);
 
         return attributeDescriptions;

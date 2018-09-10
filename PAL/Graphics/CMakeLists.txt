@@ -4,6 +4,7 @@ project(PAL_Graphics)
 
 #if (${BUILD_SHARED_LIBS})
 	add_definitions("-D_GRAPHICSDLL")
+	#add_definitions("-DVK_NO_PROTOTYPES")
 #endif()
 
 find_package(vulkan REQUIRED)
@@ -17,6 +18,7 @@ endif()
 
 include_directories(
 	"Headers"
+	"Headers/PAL/Graphics/"
 	"Source"
 )
 
@@ -24,9 +26,11 @@ set(SOURCES
 # ---- public headers -----
 	Headers/PAL/Graphics/GraphicsBase.h
 	Headers/PAL/Graphics/LowVK.h
+	Headers/PAL/Graphics/VKAny.h
 
 # ---- private sources -----
 	Source/Any/LowVKAny.cpp
+	Source/Any/VKAny.cpp
 	Source/Any/LayersExtensions.inl
 )
 
@@ -70,6 +74,8 @@ endif()
 
 add_library(${PROJECT_NAME} ${SOURCES})
 
-target_link_libraries(${PROJECT_NAME}
-	Vulkan::Vulkan
-)
+#target_link_libraries(${PROJECT_NAME}
+#	Vulkan::Vulkan
+#)
+
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/Headers/ ${CMAKE_CURRENT_SOURCE_DIR}/Headers/PAL/Graphics/)
