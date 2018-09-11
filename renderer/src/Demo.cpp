@@ -4,7 +4,6 @@
 #include <fstream>
 #include "files.h"
 #include "RendererVK.h"
-#include "BufferImpl.h"
 #include "Texture.h"
 #include "Object3D.h"
 #include "RendererResourceStateVK.h"
@@ -133,8 +132,10 @@ void RENDERER_API DemoApplication::initVulkan()
 
 	for (size_t i = 0; i < /*mSwapChainImages.size()*/3; i++)
 	{
+		auto bufferVk = (renderer::BufferVK*)(mUniformBuffers[i]->GetGpuResource());
+
 		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = static_cast<renderer::Buffer*>(mUniformBuffers[i].get())->GetVulkanBuffer();
+		bufferInfo.buffer = bufferVk->buffer;
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(CameraTransform);
 
@@ -408,22 +409,21 @@ void RENDERER_API DemoApplication::initVulkan()
     
     
     mTriangleVBO = std::make_shared<Buffer>();
-	std::shared_ptr<renderer::IBuffer> mTriangleStagingVBO = std::make_shared<Buffer>();
+	std::shared_ptr<renderer::Buffer> mTriangleStagingVBO = std::make_shared<Buffer>();
     mTriangleIBO = std::make_shared<Buffer>();
-	std::shared_ptr<renderer::IBuffer> mTriangleStagingIBO = std::make_shared<Buffer>();
+	std::shared_ptr<renderer::Buffer> mTriangleStagingIBO = std::make_shared<Buffer>();
     
     BufferDesc stagingDesc;
     stagingDesc.usage = BufferUsage::Staging | BufferUsage::TransferSrc;
     
     mRenderer.CreateBuffer(stagingDesc, vertexData, mTriangleStagingVBO);
     
-    auto stagingBufferVk = std::static_pointer_cast<renderer::Buffer>(mTriangleStagingVBO);
-    const auto& stagingBufferMemory = stagingBufferVk->GetVulkanMemory();
+    auto stagingBufferVk = (BufferVK*)(mTriangleStagingVBO->GetGpuResource());
     
 	void* dataPtr{ nullptr };
-	LowVK::MapMemory(stagingBufferMemory, 0, vertexData.size, 0, &dataPtr);
+	LowVK::MapMemory(stagingBufferVk->memory, 0, vertexData.size, 0, &dataPtr);
     memcpy(dataPtr, cube.vertices.data(), (size_t)vertexData.size);
-	LowVK::UnmapMemory(stagingBufferMemory);
+	LowVK::UnmapMemory(stagingBufferVk->memory);
     
     BufferDesc desc;
     desc.flags = BufferBindFlags::VertexBuffer;
@@ -431,9 +431,9 @@ void RENDERER_API DemoApplication::initVulkan()
     
     mRenderer.CreateBuffer(desc, vertexData, mTriangleVBO);
     
-    auto bufferVk = std::static_pointer_cast<renderer::Buffer>(mTriangleVBO);
+    auto bufferVk = (renderer::BufferVK*)(mTriangleVBO->GetGpuResource());
     
-    mTriangleStagingVBO->CopyData(mTriangleStagingVBO, mTriangleVBO, 0, 0, vertexData.size);
+    mRenderer.CopyBuffer(mTriangleStagingVBO, mTriangleVBO, 0, 0, vertexData.size);
 	//mTriangleStagingVBO->Release();
 	//mTriangleStagingVBO.reset();
     // vk Destroy staging buff
@@ -448,8 +448,8 @@ void RENDERER_API DemoApplication::initVulkan()
     
     mRenderer.CreateBuffer(stagingIboDesc, indexData, mTriangleStagingIBO);
     
-    auto stagingIndexBufferVk = std::static_pointer_cast<renderer::Buffer>(mTriangleStagingIBO);
-    const auto& stagingIndexBufferMemory = stagingIndexBufferVk->GetVulkanMemory();
+    auto stagingIndexBufferVk = (BufferVK*)(mTriangleStagingIBO->GetGpuResource());
+	const auto& stagingIndexBufferMemory = stagingIndexBufferVk->memory;
     
 	void* mdataPtr{ nullptr };
 	LowVK::MapMemory(stagingIndexBufferMemory, 0, indexData.size, 0, &mdataPtr);
@@ -462,9 +462,9 @@ void RENDERER_API DemoApplication::initVulkan()
     
     mRenderer.CreateBuffer(descIbo, indexData, mTriangleIBO);
     
-    mTriangleStagingIBO->CopyData(mTriangleStagingIBO, mTriangleIBO, 0, 0, indexData.size);
+    mRenderer.CopyBuffer(mTriangleStagingIBO, mTriangleIBO, 0, 0, indexData.size);
     
-    auto indexBufferVk = std::static_pointer_cast<renderer::Buffer>(mTriangleIBO);
+    auto indexBufferVk = (renderer::BufferVK*)(mTriangleIBO->GetGpuResource());
 	//mTriangleStagingIBO->Release();
 	//mTriangleStagingIBO.reset();
     
@@ -508,11 +508,11 @@ void RENDERER_API DemoApplication::initVulkan()
 		LowVK::CmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
 
-		std::vector<VkBuffer> vertexBuffers{ bufferVk->GetVulkanBuffer() };
+		std::vector<VkBuffer> vertexBuffers{ bufferVk->buffer };
 		std::vector<VkDeviceSize> offsets{ 0 };
 
 		LowVK::CmdBindVertexBuffers(mCommandBuffers[i], 0, 1, vertexBuffers.data(), offsets.data());
-		LowVK::CmdBindIndexBuffer(mCommandBuffers[i], indexBufferVk->GetVulkanBuffer(), 0, VK_INDEX_TYPE_UINT32);
+		LowVK::CmdBindIndexBuffer(mCommandBuffers[i], indexBufferVk->buffer, 0, VK_INDEX_TYPE_UINT32);
 		LowVK::CmdBindDescriptorSets(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, { mDescriptorSets[i] }, {});
 		LowVK::CmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 		
@@ -557,7 +557,7 @@ void DemoApplication::cleanup()
 
 	for (auto& uniformBuf : mUniformBuffers)
 	{
-		uniformBuf->Release();
+		//uniformBuf->Release();
 	}
 
 	LowVK::FreeCommandBuffers(mRenderer.GetPool(), mCommandBuffers);
@@ -587,12 +587,12 @@ void RENDERER_API DemoApplication::draw()
 	 
 	transform.projection[1][1] *= -1;
 
-	const auto vkunibuff = static_cast<renderer::Buffer*>(mUniformBuffers[imageIndex].get());
+	const auto vkunibuff = (renderer::BufferVK*)(mUniformBuffers[imageIndex]->GetGpuResource());
 
 	void* dataPtr{ nullptr };
-	LowVK::MapMemory(vkunibuff->GetVulkanMemory(), 0, VkDeviceSize(sizeof(CameraTransform)), 0, &dataPtr);
+	LowVK::MapMemory(vkunibuff->memory, 0, VkDeviceSize(sizeof(CameraTransform)), 0, &dataPtr);
 	memcpy(dataPtr, &transform, (size_t)sizeof(CameraTransform));
-	LowVK::UnmapMemory(vkunibuff->GetVulkanMemory());
+	LowVK::UnmapMemory(vkunibuff->memory);
 
 	//// ----------------- end of update ubo ------------
     

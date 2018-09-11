@@ -28,7 +28,8 @@ namespace renderer
         void Initialize(void* window);
 		void Deinitialize();
         
-        void CreateBuffer(const BufferDesc& desc, const BufferData& data, std::shared_ptr<IBuffer>& bufferObject);
+        void CreateBuffer(const BufferDesc& desc, const BufferData& data, std::shared_ptr<Buffer>& bufferObject);
+		void CopyBuffer(std::shared_ptr<Buffer>& srcBuffer, std::shared_ptr<Buffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size);
 
 		// void RendererInterface
 		void TransitionImageLayout(VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
@@ -64,7 +65,6 @@ namespace renderer
         VkCommandPool mCmdPool;
         VkQueue mGraphicsQueue;
 		VkDescriptorSetLayout mLayout;
-
 
 		// Swap chain properties
 		VkSurfaceCapabilitiesKHR mCapabilities;

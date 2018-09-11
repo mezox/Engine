@@ -11,6 +11,12 @@ namespace renderer
 		virtual ~RendererTexture() = default;
 	};
 
+	class RendererBuffer
+	{
+	public:
+		virtual ~RendererBuffer() = default;
+	};
+
 	enum class ImageFormat
 	{
 		RGBA8,

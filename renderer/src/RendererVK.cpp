@@ -1,6 +1,5 @@
 #include "RendererVK.h"
 
-#include "BufferImpl.h"
 #include "Texture.h"
 #include "RendererResourceStateVK.h"
 
@@ -193,9 +192,119 @@ void RendererVK::Deinitialize()
 	LowVK::Deinitialize();
 }
 
-void RendererVK::CreateBuffer(const BufferDesc& desc, const BufferData& data, std::shared_ptr<IBuffer>& bufferObject)
+void RendererVK::CreateBuffer(const BufferDesc& desc, const BufferData& data, std::shared_ptr<Buffer>& bufferObject)
 {
-    bufferObject = std::make_shared<renderer::Buffer>(mCmdPool, mGraphicsQueue, desc, data);
+	bufferObject = std::make_shared<renderer::Buffer>();
+
+	auto bufferVk = std::make_unique<BufferVK>();
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = data.size;
+
+	if (desc.flags & BufferBindFlags::VertexBuffer)
+		bufferInfo.usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	if (desc.flags & BufferBindFlags::IndexBuffer)
+		bufferInfo.usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	if (desc.flags & BufferBindFlags::UniformBuffer)
+		bufferInfo.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+	if (desc.usage & BufferUsage::TransferDest)
+		bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	if (desc.usage & BufferUsage::TransferSrc)
+		bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	LowVK::CreateBuffer(&bufferInfo, nullptr, &bufferVk->buffer);
+
+	auto physicalDevicePtr = LowVK::GetPhysical();
+
+	auto findMemoryType = [](uint32_t typeFilter, const VkMemoryPropertyFlags properties) -> uint32_t {
+		VkPhysicalDeviceMemoryProperties memoryProperties;
+
+		LowVK::GetPhysicalDeviceMemoryProperties(&memoryProperties);
+
+		for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
+		{
+			if ((typeFilter & (1 << i)) && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
+	};
+
+	/*
+	 The VkMemoryRequirements struct has three fields:
+
+	 size:              The size of the required amount of memory in bytes, may differ from bufferInfo.size.
+	 alignment:         The offset in bytes where the buffer begins in the allocated region of memory, depends
+	 on bufferInfo.usage and bufferInfo.flags.
+	 memoryTypeBits:    Bit field of the memory types that are suitable for the buffer.
+	 */
+	VkMemoryRequirements memoryRequirements;
+	LowVK::GetBufferMemoryRequirements(bufferVk->buffer, &memoryRequirements);
+
+	VkMemoryPropertyFlags memoryFlags;
+	if (desc.usage & renderer::BufferUsage::Staging)
+		memoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	else
+		memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memoryRequirements.size;
+	allocInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, memoryFlags);
+
+	LowVK::AllocateMemory(&allocInfo, nullptr, &bufferVk->memory);
+	LowVK::BindBufferMemory(bufferVk->buffer, bufferVk->memory, 0);
+
+	bufferObject->SetGpuResource(std::move(bufferVk));
+}
+
+void RendererVK::CopyBuffer(std::shared_ptr<Buffer>& srcBuffer, std::shared_ptr<Buffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size)
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = mCmdPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer cmdBuffer;
+	LowVK::AllocateCommandBuffers(&allocInfo, &cmdBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	LowVK::BeginCommandBuffer(cmdBuffer, &beginInfo);
+
+	VkBufferCopy copyInfo;
+	copyInfo.srcOffset = srcOffset; // Optional
+	copyInfo.dstOffset = dstOffset; // Optional
+	copyInfo.size = size;
+
+	auto srcBufferVk = (BufferVK*)(srcBuffer->GetGpuResource());
+	auto dstBufferVk = (BufferVK*)(dstBuffer->GetGpuResource());
+
+	LowVK::CmdCopyBuffer(cmdBuffer, srcBufferVk->buffer, dstBufferVk->buffer, { copyInfo });
+
+	LowVK::EndCommandBuffer(cmdBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+
+	LowVK::QueueSubmit(mGraphicsQueue, { submitInfo }, {});
+	LowVK::QueueWaitIdle(mGraphicsQueue);
+
+	// We could use a fence and wait with vkWaitForFences, or simply wait for the transfer queue to become idle with vkQueueWaitIdle. A fence would allow you to schedule multiple
+	// transfers simultaneously and wait for all of them complete, instead of executing one at a time. That may give the driver more opportunities to optimize.
+
+	LowVK::FreeCommandBuffers(mCmdPool, { cmdBuffer });
 }
 
 void RendererVK::TransitionImageLayout(VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout)
@@ -258,7 +367,7 @@ void RendererVK::CreateTexture(Texture& texture)
 	const auto usage = texture.GetUsage();
 	const auto format = texture.GetFormat();
 
-	std::unique_ptr<Buffer> stagingBuffer;
+	std::shared_ptr<Buffer> stagingBuffer;
 
 	if(shouldUploadData)
 	{
@@ -269,9 +378,11 @@ void RendererVK::CreateTexture(Texture& texture)
 		texData.data = (void*)texture.Data();
 		texData.size = static_cast<uint32_t>(texture.GetSize());
 
-		stagingBuffer = std::make_unique<Buffer>(mCmdPool, mGraphicsQueue, bufDesc, texData);
+		stagingBuffer = std::make_shared<Buffer>();
+		CreateBuffer(bufDesc, texData, stagingBuffer);
 
-		const auto& stagingMemory = stagingBuffer->GetVulkanMemory();
+		auto bufferVk = (BufferVK*)(stagingBuffer->GetGpuResource());
+		const auto& stagingMemory = bufferVk->memory;
 
 		void* data{ nullptr };
 		LowVK::MapMemory(stagingMemory, 0, texData.size, 0, &data);
@@ -337,8 +448,10 @@ void RendererVK::CreateTexture(Texture& texture)
 
 	if (shouldUploadData)
 	{
+		auto bufferVk = (BufferVK*)(stagingBuffer->GetGpuResource());
+
 		TransitionImageLayout(tex->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		CopyBufferToImage(stagingBuffer->GetVulkanBuffer(), tex->image, texture.GetWidth(), texture.GetHeight());
+		CopyBufferToImage(bufferVk->buffer, tex->image, texture.GetWidth(), texture.GetHeight());
 		TransitionImageLayout(tex->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 	else if (usage == ImageUsage::DepthAttachment)

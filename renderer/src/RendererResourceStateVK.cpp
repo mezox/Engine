@@ -17,3 +17,9 @@ RendererTextureVK::~RendererTextureVK()
 
 	LowVK::FreeMemory(memory, nullptr);
 }
+
+renderer::BufferVK::~BufferVK()
+{
+	LowVK::DestroyBuffer(buffer, nullptr);
+	LowVK::FreeMemory(memory, nullptr);
+}

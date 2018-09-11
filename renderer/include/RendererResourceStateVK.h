@@ -15,4 +15,14 @@ namespace renderer
 		VkDeviceMemory memory;
 		VkSampler sampler;
 	};
+
+	class BufferVK : public RendererBuffer
+	{
+	public:
+		~BufferVK();
+
+	public:
+		VkBuffer buffer;
+		VkDeviceMemory memory;
+	};
 }

@@ -19,7 +19,7 @@
 #endif
 
 namespace renderer {
-    class IBuffer;
+    class Buffer;
 }
 
 class DemoApplication
@@ -54,10 +54,10 @@ private:
     
     renderer::RendererVK mRenderer;
     
-    std::shared_ptr<renderer::IBuffer> mTriangleVBO;
-    std::shared_ptr<renderer::IBuffer> mTriangleIBO;
+    std::shared_ptr<renderer::Buffer> mTriangleVBO;
+    std::shared_ptr<renderer::Buffer> mTriangleIBO;
 
-	std::vector<std::shared_ptr<renderer::IBuffer>> mUniformBuffers;
+	std::vector<std::shared_ptr<renderer::Buffer>> mUniformBuffers;
 
 	VkDescriptorPool mDescriptorPool;
 	std::vector<VkDescriptorSet> mDescriptorSets;

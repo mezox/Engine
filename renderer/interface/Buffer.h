@@ -13,6 +13,8 @@ void operator=(const TypeName&) = delete;
 
 namespace renderer
 {
+	class RendererBuffer;
+
     enum BufferUsage : uint32_t
     {
         Static = 0x01,
@@ -52,16 +54,15 @@ namespace renderer
 		uint32_t size{ 0 };
     };
     
-    class RENDERER_API IBuffer
+    class Buffer
     {
     public:
-        virtual ~IBuffer() = default;
-        
-        virtual void CopyData(std::shared_ptr<IBuffer>& srcBuffer, std::shared_ptr<IBuffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size) = 0;
-		virtual void Map(const uint64_t offset, const uint64_t size, void* data) = 0;
-		virtual void Release() = 0;
-        
-        //virtual void Map() {}
-        //virtual void Unmap() {}
+        virtual ~Buffer() = default;
+
+		const RendererBuffer* GetGpuResource() const { return mGpuBuffer.get(); }
+		void SetGpuResource(std::unique_ptr<RendererBuffer> buffer) { mGpuBuffer = std::move(buffer); }
+
+	protected:
+		std::unique_ptr<RendererBuffer> mGpuBuffer;
     };
 }
