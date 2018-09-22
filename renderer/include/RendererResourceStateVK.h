@@ -2,7 +2,7 @@
 
 #include "Renderer.h"
 
-namespace renderer
+namespace Renderer
 {
 	class RendererTextureVK : public RendererTexture
 	{
@@ -24,5 +24,14 @@ namespace renderer
 	public:
 		VkBuffer buffer;
 		VkDeviceMemory memory;
+	};
+
+	class EffectVK : public RendererEffect
+	{
+	public:
+		~EffectVK() = default;
+
+	public:
+		VkShaderModule module;
 	};
 }

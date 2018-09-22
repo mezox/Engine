@@ -11,7 +11,7 @@ private:                                    \
 TypeName(const TypeName&) = delete;         \
 void operator=(const TypeName&) = delete;
 
-namespace renderer
+namespace Renderer
 {
 	class RendererBuffer;
 
@@ -61,6 +61,8 @@ namespace renderer
 
 		const RendererBuffer* GetGpuResource() const { return mGpuBuffer.get(); }
 		void SetGpuResource(std::unique_ptr<RendererBuffer> buffer) { mGpuBuffer = std::move(buffer); }
+
+		void MapMemory(void* data, uint32_t dataSize);
 
 	protected:
 		std::unique_ptr<RendererBuffer> mGpuBuffer;

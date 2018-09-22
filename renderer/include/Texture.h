@@ -3,9 +3,9 @@
 #include <string>
 #include "Renderer.h"		// TODO: Get rid of this, its here only because of formats and usages
 
-namespace renderer
+namespace Renderer
 {
-	class RendererVK;
+	class IRenderer;
 
 	class Texture
 	{
@@ -13,8 +13,8 @@ namespace renderer
 
 	public:
 		Texture() = default;
-		Texture(const std::shared_ptr<RendererVK>& renderer, const std::string& path);
-		Texture(const std::shared_ptr<RendererVK>& renderer, ImageFormat format, ImageUsage usage, uint32_t width, uint32_t height);
+		Texture(IRenderer* renderer, const std::string& path);
+		Texture(IRenderer* renderer, ImageFormat format, ImageUsage usage, uint32_t width, uint32_t height);
 
 		void SetRendererResource(std::unique_ptr<RendererTexture> resource);
 		const unsigned char* Data() const noexcept { return mData; }
@@ -30,7 +30,7 @@ namespace renderer
 		void ReleaseFromServer();
 
 	private:
-		std::shared_ptr<RendererVK> mRenderer;
+		IRenderer* mRenderer;
 		unsigned char* mData{ nullptr };
 		size_t mSize{ 0 };
 

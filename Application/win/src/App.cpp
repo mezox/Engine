@@ -1,18 +1,25 @@
 #include "Demo.h"
+#include <Engine.h>
 #include <iostream>
+#include <Window.h>
 
 int main()
 {
 	DemoApplication app;
 
+	Renderer::EngineServiceLocator::Provide(Renderer::CreateEngineService());
+
     try
 	{
         app.initVulkan();
 
-		while (!glfwWindowShouldClose(app.window))
+		while (1)
 		{
-			glfwPollEvents();
+			Renderer::EngineServiceLocator::Service()->StartFrame();
+
+			app.GetWindow()->Update();
 			app.draw();
+			Renderer::EngineServiceLocator::Service()->EndFrame();
 		}
 
     } catch (const std::exception& e)
@@ -23,8 +30,7 @@ int main()
 
 	app.cleanup();
 
-	glfwDestroyWindow(app.window);
-	glfwTerminate();
+	Renderer::EngineServiceLocator::Provide(nullptr);
 
     return EXIT_SUCCESS;
 }

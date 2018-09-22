@@ -2,7 +2,7 @@
 
 #include <PAL/Graphics/LowVK.h>
 
-using namespace renderer;
+using namespace Renderer;
 
 
 RendererTextureVK::~RendererTextureVK()
@@ -18,7 +18,7 @@ RendererTextureVK::~RendererTextureVK()
 	LowVK::FreeMemory(memory, nullptr);
 }
 
-renderer::BufferVK::~BufferVK()
+BufferVK::~BufferVK()
 {
 	LowVK::DestroyBuffer(buffer, nullptr);
 	LowVK::FreeMemory(memory, nullptr);

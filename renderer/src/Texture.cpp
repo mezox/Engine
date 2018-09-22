@@ -4,9 +4,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <Renderer/include/stb_image.h>
 
-using namespace renderer;
+using namespace Renderer;
 
-Texture::Texture(const std::shared_ptr<RendererVK>& renderer, const std::string& path)
+Texture::Texture(IRenderer* renderer, const std::string& path)
 	: mRenderer(renderer)
 {
 	int texWidth, texHeight, texChannels;
@@ -24,17 +24,19 @@ Texture::Texture(const std::shared_ptr<RendererVK>& renderer, const std::string&
 	mUsage = ImageUsage::Sampled;
 	mFormat = ImageFormat::RGBA8;
 
-	mRenderer->CreateTexture(*this);
+	auto vkRenderer = (RendererVK*)mRenderer;
+	vkRenderer->CreateTexture(*this);
 }
 
-Texture::Texture(const std::shared_ptr<RendererVK>& renderer, ImageFormat format, ImageUsage usage, uint32_t width, uint32_t height)
+Texture::Texture(IRenderer* renderer, ImageFormat format, ImageUsage usage, uint32_t width, uint32_t height)
 	: mRenderer(renderer)
 	, mFormat(format)
 	, mUsage(usage)
 	, mWidth(width)
 	, mHeight(height)
 {
-	mRenderer->CreateTexture(*this);
+	auto vkRenderer = (RendererVK*)mRenderer;
+	vkRenderer->CreateTexture(*this);
 }
 
 void Texture::SetRendererResource(std::unique_ptr<RendererTexture> resource)
@@ -42,7 +44,7 @@ void Texture::SetRendererResource(std::unique_ptr<RendererTexture> resource)
 	mTexture = std::move(resource); 
 }
 
-void renderer::Texture::ClearLocalData()
+void Texture::ClearLocalData()
 {
 	stbi_image_free(mData);
 }

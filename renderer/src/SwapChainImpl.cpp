@@ -1,0 +1,156 @@
+#include "SwapChainImpl.h"
+
+#include "RendererVK.h"
+#include "Texture.h"
+#include "RendererResourceStateVK.h"
+
+#include <PAL/Graphics/LowVK.h>
+
+#undef min
+#undef max
+
+using namespace Renderer;
+
+void SwapChainVK::Initialize(IRenderer* renderer, const uint32_t width, const uint32_t height)
+{
+	const auto surface = LowVK::GetSurface();
+	const auto& device = LowVK::GetDevice().get();
+	const auto& physicalDevice = LowVK::GetPhysical().get();
+
+	LowVK::GetPhysicalDeviceSurfaceCapabilitiesKHR(&mCapabilities);
+	LowVK::GetPhysicalDeviceSurfaceFormatsKHR(mFormats);
+	LowVK::GetPhysicalDeviceSurfacePresentModesKHR(mPresentationModes);
+
+	VkBool32 surfaceSupported{ VK_FALSE };
+	LowVK::GetPhysicalDeviceSurfaceSupportKHR(0, surface, &surfaceSupported);
+
+	if (surfaceSupported)
+	{
+		const auto& format = mFormats.front();      // Get B8G8R8A8_unorm
+		const auto& presentMode = mPresentationModes.front();   // Immeadiate
+		VkExtent2D screenExtent;
+		screenExtent.width = width;
+		screenExtent.height = height;
+
+		uint32_t imageCount = mCapabilities.minImageCount + 1;
+
+		if (1/*mEnableTrippleBuffering*/)
+		{
+			if (mCapabilities.maxImageCount > 0 && imageCount > mCapabilities.maxImageCount)
+			{
+				imageCount = mCapabilities.maxImageCount;
+			}
+		}
+
+		VkSwapchainCreateInfoKHR createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		createInfo.surface = surface;
+		createInfo.minImageCount = imageCount;
+		createInfo.imageColorSpace = format.colorSpace;
+		createInfo.imageFormat = format.format;
+		createInfo.imageExtent = screenExtent;
+		createInfo.imageArrayLayers = 1;
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //Use transfer if I want to render to other buffer and apply post process and then copy;
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.queueFamilyIndexCount = 0; // Optional
+		createInfo.pQueueFamilyIndices = nullptr; // Optional
+		createInfo.preTransform = mCapabilities.currentTransform;
+		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		createInfo.presentMode = presentMode;
+		createInfo.clipped = VK_TRUE;
+		createInfo.oldSwapchain = VkSwapchainKHR{};
+
+		LowVK::CreateSwapchainKHR(&createInfo, nullptr, &mHandle);
+		LowVK::GetSwapchainImagesKHR(mHandle, mImages);
+
+		mImageViews.resize(mImages.size());
+
+		for (size_t idx{ 0 }; idx < mImageViews.size(); ++idx)
+		{
+			VkImageViewCreateInfo imageViewCreateInfo{};
+			imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			imageViewCreateInfo.image = mImages[idx];
+			imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			imageViewCreateInfo.format = format.format;
+			imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+			imageViewCreateInfo.subresourceRange.levelCount = 1;
+			imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+			imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+			LowVK::CreateImageView(&imageViewCreateInfo, nullptr, &mImageViews[idx]);
+		}
+	}
+}
+
+void SwapChainVK::Destroy()
+{
+	mDepthTexture->ReleaseFromServer();
+
+	for (auto& imageView : mImageViews)
+	{
+		LowVK::DestroyImageView(imageView, nullptr);
+	}
+
+	for (auto& image : mImages)
+	{
+		LowVK::DestroyImage(image, nullptr);
+	}
+
+	LowVK::DestroySwapchainKHR(mHandle, nullptr);
+}
+
+void SwapChainVK::SetSemaphore(IRenderer* renderer, const uint32_t width, const uint32_t height, VkQueue present, VkSemaphore renderFinished, VkSemaphore imgAvailable, VkRenderPass pass)
+{
+	mSemaphore = renderFinished;
+	mPresentQueue = present;
+	mImgAvailable = imgAvailable;
+	mRenderPass = pass;
+
+	mFramebuffers.resize(/*mSwapChainImages.size()*/3);
+
+	mDepthTexture = std::make_unique<Texture>(renderer, ImageFormat::DEPTH, ImageUsage::DepthAttachment, width, height);
+
+	for (size_t i = 0; i < /*mSwapChainImages.size()*/3; i++)
+	{
+		auto depthTex = (RendererTextureVK*)mDepthTexture->GetRendererTexture();
+
+		std::vector<VkImageView> attachments{ mImageViews[i], depthTex->imageView };
+
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = mRenderPass;
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		framebufferInfo.pAttachments = attachments.data();
+		framebufferInfo.width = width;
+		framebufferInfo.height = height;
+		framebufferInfo.layers = 1;
+
+		LowVK::CreateFramebuffer(&framebufferInfo, nullptr, &mFramebuffers[i]);
+	}
+}
+
+uint32_t SwapChainVK::SwapBuffers()
+{
+	LowVK::AcquireNextImageKHR(mHandle, std::numeric_limits<uint64_t>::max(), mImgAvailable, {}, &mImageIndex);
+	return mImageIndex;
+}
+
+void SwapChainVK::Present()
+{
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &mSemaphore;
+
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &mHandle;
+	presentInfo.pImageIndices = &mImageIndex;
+	presentInfo.pResults = nullptr; // Optional
+
+	LowVK::QueuePresentKHR(mPresentQueue, &presentInfo);
+}

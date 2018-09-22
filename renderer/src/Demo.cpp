@@ -2,72 +2,43 @@
 
 #include <iostream>
 #include <fstream>
-#include "files.h"
 #include "RendererVK.h"
 #include "Texture.h"
 #include "Object3D.h"
 #include "RendererResourceStateVK.h"
+#include "WindowImpl.h"
+#include "SwapChainImpl.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// for depth in range 0,1 instead of -1,1
 #include <glm/gtc/matrix_transform.hpp>
 
 #ifdef WIN32
-
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
 #include <vulkan/vulkan_win32.h>
 #include <chrono>
-
-#undef min
-#undef max
 #endif
 
-namespace  {
+namespace 
+{
     uint32_t width = 1920;
     uint32_t height = 1080;
 }
 
-
-static std::vector<char> readFile(const std::string& filename)
-{
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file!");
-    }
-    
-    size_t fileSize = (size_t) file.tellg();
-    std::vector<char> buffer(fileSize);
-    
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    
-    file.close();
-    
-    return buffer;
-}
-
 void RENDERER_API DemoApplication::initVulkan()
 {
-#ifdef WIN32
-	glfwInit();
+	auto win = std::make_unique<Engine::Window>();
+	win->Initialize();
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
-	window = glfwCreateWindow(1920, 1080, "Vulkan", nullptr, nullptr);
-#endif
+	mWindow = std::move(win);
     
-    mRenderer.Initialize(window);
+    mRenderer.Initialize(mWindow->GetNativeHandle());
 
-	//Renderer::Cube cube;
-	Renderer::Mesh cube;
+	Renderer::Cube cube;
+	/*Renderer::Mesh cube;
 	cube.Load("resources/models/chalet.obj");
-
+*/
 	mDevice = mRenderer.GetDevice();
 
-	mCameraPosition = glm::vec3(2.0f, 2.0f, 2.0f);
-    
+	mCameraPosition = glm::vec3(0.0f, 1.0f, 3.0f);
     
 #ifdef WIN32
 	const auto vertSh = std::string("resources/shaders/vert.spv");
@@ -77,11 +48,9 @@ void RENDERER_API DemoApplication::initVulkan()
 	const auto fragSh = bundlePath("frag");
 #endif
 
-    const auto vertShaderCode = readFile(vertSh);
-    const auto fragShaderCode = readFile(fragSh);
-    
-    const auto mVertexShader = mRenderer.CreateShader(vertShaderCode);
-    const auto mFragmentShader = mRenderer.CreateShader(fragShaderCode);
+	mEffect = std::make_unique<Renderer::Effect>(&mRenderer);
+	mEffect->Build(vertSh, fragSh);
+   
 
 	// -------- Create uniform buffer -----------------
 	VkDeviceSize bufferSize = sizeof(CameraTransform);
@@ -90,16 +59,14 @@ void RENDERER_API DemoApplication::initVulkan()
 
 	for (size_t i = 0; i < /*mSwapChainImages.size()*/3; ++i)
 	{
-		renderer::BufferDesc desc(renderer::BufferUsage::Staging, renderer::BufferBindFlags::UniformBuffer);
-		renderer::BufferData data(nullptr, static_cast<uint32_t>(sizeof(CameraTransform)));
+		Renderer::BufferDesc desc(Renderer::BufferUsage::Staging, Renderer::BufferBindFlags::UniformBuffer);
+		Renderer::BufferData data(nullptr, static_cast<uint32_t>(sizeof(CameraTransform)));
 
 		mRenderer.CreateBuffer(desc, data, mUniformBuffers[i]);
 	}
 
-	auto renderer = std::make_shared<renderer::RendererVK>(mRenderer);
-
 	// ------------------------------------------------
-	mTexture = std::make_unique<renderer::Texture>(renderer, "resources/textures/chalet.jpg");
+	mTexture = std::make_unique<Renderer::Texture>(&mRenderer, "resources/textures/chalet.jpg");
 	// -------------------------------------------------
 
 	mRenderer.CreateDescriptorSetLayout();
@@ -132,14 +99,14 @@ void RENDERER_API DemoApplication::initVulkan()
 
 	for (size_t i = 0; i < /*mSwapChainImages.size()*/3; i++)
 	{
-		auto bufferVk = (renderer::BufferVK*)(mUniformBuffers[i]->GetGpuResource());
+		auto bufferVk = (Renderer::BufferVK*)(mUniformBuffers[i]->GetGpuResource());
 
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = bufferVk->buffer;
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(CameraTransform);
 
-		renderer::RendererTextureVK* vulkanTexture = (renderer::RendererTextureVK*)mTexture->GetRendererTexture();
+		Renderer::RendererTextureVK* vulkanTexture = (Renderer::RendererTextureVK*)mTexture->GetRendererTexture();
 
 		VkDescriptorImageInfo imageInfo;
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -180,7 +147,7 @@ void RENDERER_API DemoApplication::initVulkan()
     LowVK::CreatePipelineLayout(&pipelineLayoutInfo, nullptr, &mPipelineLayout);
     
 	VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = mRenderer.GetFormats().front().format;
+	colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM; /////////
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -246,17 +213,20 @@ void RENDERER_API DemoApplication::initVulkan()
 	depthStencil.front = {}; // Optional
 	depthStencil.back = {}; // Optional
 
+	auto vertexShaderResource = (Renderer::EffectVK*)mEffect->mVertexShader.get();
+	auto fragmentShaderResource = (Renderer::EffectVK*)mEffect->mFragmentShader.get();
+
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderStageInfo.module = mVertexShader;
+	vertShaderStageInfo.module = vertexShaderResource->module;
 	vertShaderStageInfo.pName = "main";
 	vertShaderStageInfo.pSpecializationInfo = nullptr;
 
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
 	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragShaderStageInfo.module = mFragmentShader;
+	fragShaderStageInfo.module = fragmentShaderResource->module;
 	fragShaderStageInfo.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shaderStages[]{ vertShaderStageInfo, fragShaderStageInfo };
@@ -353,6 +323,22 @@ void RENDERER_API DemoApplication::initVulkan()
 	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamicState.dynamicStateCount = 1;
 	dynamicState.pDynamicStates = dynamicStates;
+
+	uint32_t colorMode{ 0 }; // Sets the lighting model used in the fragment "uber" shader
+
+	VkSpecializationMapEntry specializationMapEntries;
+	specializationMapEntries.constantID = 0;
+	specializationMapEntries.size = sizeof(uint32_t);
+	specializationMapEntries.offset = 0;
+
+	// Prepare specialization info block for the shader stage
+	VkSpecializationInfo specializationInfo{};
+	specializationInfo.dataSize = sizeof(uint32_t);
+	specializationInfo.mapEntryCount = 1;
+	specializationInfo.pMapEntries = &specializationMapEntries;
+	specializationInfo.pData = &colorMode;
+
+	shaderStages[1].pSpecializationInfo = &specializationInfo; 
     
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -374,64 +360,44 @@ void RENDERER_API DemoApplication::initVulkan()
     pipelineInfo.basePipelineIndex = -1; // Optionalpipe
     
 	LowVK::CreateGraphicsPipelines({}, { pipelineInfo }, nullptr, &mGraphicsPipeline);
-    
-    mSwapChainFramebuffers.resize(/*mSwapChainImages.size()*/3);
 
-	mDepthTexture = std::make_unique<renderer::Texture>(renderer, renderer::ImageFormat::DEPTH, renderer::ImageUsage::DepthAttachment, ::width, ::height);
+	colorMode = 1;
+	LowVK::CreateGraphicsPipelines({}, { pipelineInfo }, nullptr, &mGraphicsPipelineTex);
 
-    for (size_t i = 0; i < /*mSwapChainImages.size()*/3; i++)
-    {
-		auto depthTex = (renderer::RendererTextureVK*)mDepthTexture->GetRendererTexture();
-
-        std::vector<VkImageView> attachments {
-            mRenderer.GetSwapImageViews()[i],
-			depthTex->imageView
-        };
-        
-		VkFramebufferCreateInfo framebufferInfo{};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = mRenderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = ::width;
-        framebufferInfo.height = ::height;
-        framebufferInfo.layers = 1;
-        
-        LowVK::CreateFramebuffer(&framebufferInfo, nullptr, &mSwapChainFramebuffers[i]);
-    }
+	colorMode = 2;
+	LowVK::CreateGraphicsPipelines({}, { pipelineInfo }, nullptr, &mGraphicsPipelineMix);
     
     //-------------------------------------------------
-    using namespace renderer;
     
-    BufferData vertexData;
+    Renderer::BufferData vertexData;
     vertexData.data = (void*)cube.vertices.data();
     vertexData.size = static_cast<uint32_t>(sizeof(cube.vertices[0]) * cube.vertices.size());
     
     
-    mTriangleVBO = std::make_shared<Buffer>();
-	std::shared_ptr<renderer::Buffer> mTriangleStagingVBO = std::make_shared<Buffer>();
-    mTriangleIBO = std::make_shared<Buffer>();
-	std::shared_ptr<renderer::Buffer> mTriangleStagingIBO = std::make_shared<Buffer>();
+    mTriangleVBO = std::make_shared<Renderer::Buffer>();
+	std::shared_ptr<Renderer::Buffer> mTriangleStagingVBO = std::make_shared<Renderer::Buffer>();
+    mTriangleIBO = std::make_shared<Renderer::Buffer>();
+	std::shared_ptr<Renderer::Buffer> mTriangleStagingIBO = std::make_shared<Renderer::Buffer>();
     
-    BufferDesc stagingDesc;
-    stagingDesc.usage = BufferUsage::Staging | BufferUsage::TransferSrc;
+	Renderer::BufferDesc stagingDesc;
+    stagingDesc.usage = Renderer::BufferUsage::Staging | Renderer::BufferUsage::TransferSrc;
     
     mRenderer.CreateBuffer(stagingDesc, vertexData, mTriangleStagingVBO);
     
-    auto stagingBufferVk = (BufferVK*)(mTriangleStagingVBO->GetGpuResource());
+    auto stagingBufferVk = (Renderer::BufferVK*)(mTriangleStagingVBO->GetGpuResource());
     
 	void* dataPtr{ nullptr };
 	LowVK::MapMemory(stagingBufferVk->memory, 0, vertexData.size, 0, &dataPtr);
     memcpy(dataPtr, cube.vertices.data(), (size_t)vertexData.size);
 	LowVK::UnmapMemory(stagingBufferVk->memory);
     
-    BufferDesc desc;
-    desc.flags = BufferBindFlags::VertexBuffer;
-    desc.usage = BufferUsage::TransferDest;
+	Renderer::BufferDesc desc;
+    desc.flags = Renderer::BufferBindFlags::VertexBuffer;
+    desc.usage = Renderer::BufferUsage::TransferDest;
     
     mRenderer.CreateBuffer(desc, vertexData, mTriangleVBO);
     
-    auto bufferVk = (renderer::BufferVK*)(mTriangleVBO->GetGpuResource());
+    auto bufferVk = (Renderer::BufferVK*)(mTriangleVBO->GetGpuResource());
     
     mRenderer.CopyBuffer(mTriangleStagingVBO, mTriangleVBO, 0, 0, vertexData.size);
 	//mTriangleStagingVBO->Release();
@@ -439,16 +405,16 @@ void RENDERER_API DemoApplication::initVulkan()
     // vk Destroy staging buff
     // vk free staging buff memory
     
-    BufferDesc stagingIboDesc;
-    stagingIboDesc.usage = BufferUsage::Staging | BufferUsage::TransferSrc;
+	Renderer::BufferDesc stagingIboDesc;
+    stagingIboDesc.usage = Renderer::BufferUsage::Staging | Renderer::BufferUsage::TransferSrc;
     
-    BufferData indexData;
+	Renderer::BufferData indexData;
     indexData.data = (void*)cube.indices.data();
     indexData.size = static_cast<uint32_t>(sizeof(cube.indices[0]) * cube.indices.size());
     
     mRenderer.CreateBuffer(stagingIboDesc, indexData, mTriangleStagingIBO);
     
-    auto stagingIndexBufferVk = (BufferVK*)(mTriangleStagingIBO->GetGpuResource());
+    auto stagingIndexBufferVk = (Renderer::BufferVK*)(mTriangleStagingIBO->GetGpuResource());
 	const auto& stagingIndexBufferMemory = stagingIndexBufferVk->memory;
     
 	void* mdataPtr{ nullptr };
@@ -456,21 +422,21 @@ void RENDERER_API DemoApplication::initVulkan()
     memcpy(mdataPtr, cube.indices.data(), (size_t)indexData.size);
     LowVK::UnmapMemory(stagingIndexBufferMemory);
     
-    BufferDesc descIbo;
-    descIbo.flags = BufferBindFlags::IndexBuffer;
-    descIbo.usage = BufferUsage::TransferDest;
+	Renderer::BufferDesc descIbo;
+    descIbo.flags = Renderer::BufferBindFlags::IndexBuffer;
+    descIbo.usage = Renderer::BufferUsage::TransferDest;
     
     mRenderer.CreateBuffer(descIbo, indexData, mTriangleIBO);
     
     mRenderer.CopyBuffer(mTriangleStagingIBO, mTriangleIBO, 0, 0, indexData.size);
     
-    auto indexBufferVk = (renderer::BufferVK*)(mTriangleIBO->GetGpuResource());
+    auto indexBufferVk = (Renderer::BufferVK*)(mTriangleIBO->GetGpuResource());
 	//mTriangleStagingIBO->Release();
 	//mTriangleStagingIBO.reset();
     
    //-------------------------------------------------
     
-    mCommandBuffers.resize(mSwapChainFramebuffers.size());
+    mCommandBuffers.resize(3);
     
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -479,6 +445,17 @@ void RENDERER_API DemoApplication::initVulkan()
     allocInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
     
     LowVK::AllocateCommandBuffers(&allocInfo, mCommandBuffers.data());
+
+	auto swapChain = (Renderer::SwapChainVK*)mRenderer.GetSwapChain();
+	const auto& swapChainFramebuffers = swapChain->GetFramebuffers();
+
+	VkSemaphoreCreateInfo semaphoreInfo{};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mImageAvailableSemaphore);
+	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mRenderFinishedSemaphore);
+
+	swapChain->SetSemaphore(&mRenderer, ::width, ::height, mRenderer.GetGraphicsQueue(), mRenderFinishedSemaphore, mImageAvailableSemaphore, mRenderPass);
     
 	for (size_t i = 0; i < mCommandBuffers.size(); i++)
 	{
@@ -492,7 +469,7 @@ void RENDERER_API DemoApplication::initVulkan()
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = mRenderPass;
-		renderPassInfo.framebuffer = mSwapChainFramebuffers[i];
+		renderPassInfo.framebuffer = swapChainFramebuffers[i];
 		renderPassInfo.renderArea.offset = VkOffset2D{ 0, 0 };
 		renderPassInfo.renderArea.extent = VkExtent2D{ ::width, ::height };
 
@@ -503,42 +480,52 @@ void RENDERER_API DemoApplication::initVulkan()
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
-		VkViewport vp{ 0.0f, 0.0f, ::width, ::height, 0.0f, 1.0f };
-
-		LowVK::CmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
-
 		std::vector<VkBuffer> vertexBuffers{ bufferVk->buffer };
 		std::vector<VkDeviceSize> offsets{ 0 };
 
+		LowVK::CmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		VkViewport vp{ 0.0f, 0.0f, (float)::width, (float)::height, 0.0f, 1.0f };
+
+		LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
+		LowVK::CmdBindDescriptorSets(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, { mDescriptorSets[i] }, {});
 		LowVK::CmdBindVertexBuffers(mCommandBuffers[i], 0, 1, vertexBuffers.data(), offsets.data());
 		LowVK::CmdBindIndexBuffer(mCommandBuffers[i], indexBufferVk->buffer, 0, VK_INDEX_TYPE_UINT32);
-		LowVK::CmdBindDescriptorSets(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, { mDescriptorSets[i] }, {});
-		LowVK::CmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
-		
-		//vp.width = ::width / 2.0f;
-		//LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
-		//LowVK::CmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(cube.indices.size()), 1, 0, 0, 0);
 
-		//vp.x = ::width / 2.0f;
+		// Left
+		vp.width = (float)vp.width / 3.0f;
+
 		LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
+		LowVK::CmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+		LowVK::CmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(cube.indices.size()), 1, 0, 0, 0);
+		
+		vp.x = ::width / 3.0f;
+		LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
+		LowVK::CmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipelineTex);
+		LowVK::CmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(cube.indices.size()), 1, 0, 0, 0);
+
+		vp.x = (::width / 3.0f) * 2.0f;
+		LowVK::CmdSetViewport(mCommandBuffers[i], 0, { vp });
+		LowVK::CmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipelineMix);
 		LowVK::CmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(cube.indices.size()), 1, 0, 0, 0);
 
 		LowVK::CmdEndRenderPass(mCommandBuffers[i]);
 		LowVK::EndCommandBuffer(mCommandBuffers[i]);
 	}
-	
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mImageAvailableSemaphore);
-	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mRenderFinishedSemaphore);
 
 	cube.vertices.clear();
 	cube.indices.clear();
 
-	LowVK::DestroyShaderModule(mVertexShader, nullptr);
-	LowVK::DestroyShaderModule(mFragmentShader, nullptr);
+	LowVK::DestroyShaderModule(vertexShaderResource->module, nullptr);
+	LowVK::DestroyShaderModule(fragmentShaderResource->module, nullptr);
+}
+
+DemoApplication::DemoApplication()
+{
+}
+
+DemoApplication::~DemoApplication()
+{
 }
 
 void DemoApplication::cleanup()
@@ -546,14 +533,8 @@ void DemoApplication::cleanup()
 	LowVK::DestroyDescriptorPool(mDescriptorPool, nullptr);
 
 	mTexture->ReleaseFromServer();
-	mDepthTexture->ReleaseFromServer();
 
 	LowVK::DestroyDescriptorPool(mDescriptorPool, nullptr);
-
-	for (auto& framebuffer : mSwapChainFramebuffers)
-	{
-		LowVK::DestroyFramebuffer(framebuffer, nullptr);
-	}
 
 	for (auto& uniformBuf : mUniformBuffers)
 	{
@@ -568,10 +549,10 @@ void DemoApplication::cleanup()
 	mRenderer.Deinitialize();
 }
 
-void RENDERER_API DemoApplication::draw()
+void DemoApplication::draw()
 {   
-	uint32_t imageIndex{ 0 };
-	LowVK::AcquireNextImageKHR(mRenderer.GetSwapChain(), std::numeric_limits<uint64_t>::max(), mImageAvailableSemaphore, {}, &imageIndex);
+	auto swapChain = mRenderer.GetSwapChain();
+	const auto imageIndex = swapChain->SwapBuffers();
 
 	// ------- Update Uniform buffer object ----------
 	static auto startTime = std::chrono::high_resolution_clock::now();
@@ -580,14 +561,14 @@ void RENDERER_API DemoApplication::draw()
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	CameraTransform transform;
-	transform.model = glm::rotate(glm::mat4(1.0f), glm::radians(270.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	transform.model = glm::rotate(transform.model, time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	//transform.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	transform.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	transform.view = glm::lookAt(mCameraPosition, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	transform.projection = glm::perspective(glm::radians(60.0f), (float)::width / (float)::height, 0.1f, 10.0f);
+	transform.projection = glm::perspective(glm::radians(68.0f), (float)::width / 3.0f / (float)::height, 0.1f, 10.0f);
 	 
 	transform.projection[1][1] *= -1;
 
-	const auto vkunibuff = (renderer::BufferVK*)(mUniformBuffers[imageIndex]->GetGpuResource());
+	const auto vkunibuff = (Renderer::BufferVK*)(mUniformBuffers[imageIndex]->GetGpuResource());
 
 	void* dataPtr{ nullptr };
 	LowVK::MapMemory(vkunibuff->memory, 0, VkDeviceSize(sizeof(CameraTransform)), 0, &dataPtr);
@@ -615,16 +596,5 @@ void RENDERER_API DemoApplication::draw()
 	auto& presentQueue = mRenderer.GetGraphicsQueue();
 	LowVK::QueueSubmit(presentQueue, { submitInfo }, {});
     
-	VkPresentInfoKHR presentInfo{};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = { mRenderer.GetSwapChain() };
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-    presentInfo.pResults = nullptr; // Optional
-
-	LowVK::QueuePresentKHR(presentQueue, &presentInfo);
+	swapChain->Present();
 }

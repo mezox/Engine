@@ -3,7 +3,7 @@
 #include <iostream>
 #include "RendererBase.h"
 
-namespace renderer
+namespace Renderer
 {
 	class RendererTexture
 	{
@@ -15,6 +15,12 @@ namespace renderer
 	{
 	public:
 		virtual ~RendererBuffer() = default;
+	};
+
+	class RendererEffect
+	{
+	public:
+		virtual ~RendererEffect() = default;
 	};
 
 	enum class ImageFormat
@@ -29,10 +35,16 @@ namespace renderer
 		DepthAttachment
 	};
 
-	class Renderer
+	class CommandList
 	{
 	public:
-		virtual ~Renderer() = default;
+		virtual ~CommandList() = default;
+	};
+
+	class IRenderer
+	{
+	public:
+		virtual ~IRenderer() = default;
 
 		template<typename ObjectCreateFunc>
 		void CreateGpuObject(const char* objectName, ObjectCreateFunc&& create)

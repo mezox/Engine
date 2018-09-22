@@ -9,21 +9,23 @@ include_directories (
 	${CMAKE_CURRENT_SOURCE_DIR}/../
 )
 
-if(WIN32)
-	add_definitions(-DGLFW_EXPOSE_NATIVE_WIN32)
-endif()
-
 set(RENDERER_PUBLIC_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/interface/RendererBase.h
     ${CMAKE_CURRENT_SOURCE_DIR}/interface/Vertex.h
 	${CMAKE_CURRENT_SOURCE_DIR}/interface/Renderer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/interface/Buffer.h
+	${CMAKE_CURRENT_SOURCE_DIR}/interface/Window.h
+	${CMAKE_CURRENT_SOURCE_DIR}/interface/SwapChain.h
 )
 
 set(RENDERER_PRIVATE_HEADERS
+	${CMAKE_CURRENT_SOURCE_DIR}/include/SwapChainImpl.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/RendererVK.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Texture.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Object3D.h
+	${CMAKE_CURRENT_SOURCE_DIR}/include/Effect.h
+	${CMAKE_CURRENT_SOURCE_DIR}/include/Engine.h
+	${CMAKE_CURRENT_SOURCE_DIR}/include/WindowImpl.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/RendererResourceStateVK.h
 
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Demo.h
@@ -38,10 +40,14 @@ set(RENDERER_PRIVATE_HEADERS
 )
 
 set(RENDERER_PRIVATE_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/src/SwapChainImpl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RendererVK.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Demo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Object3D.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Effect.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Engine.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/WindowImpl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/RendererResourceStateVK.cpp
 )
 
@@ -61,7 +67,6 @@ add_library(
 target_link_libraries(${PROJECT_NAME}
 	PAL_Graphics
 	glm
-	glfw ${GLFW_LIBRARIES}
 )
 
 target_include_directories(${PROJECT_NAME} INTERFACE "include/" "interface/")

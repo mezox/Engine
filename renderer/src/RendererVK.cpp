@@ -2,18 +2,16 @@
 
 #include "Texture.h"
 #include "RendererResourceStateVK.h"
+#include "SwapChainImpl.h"
 
 #ifdef WIN32
-
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
 #include <vulkan/vulkan_win32.h>
 
 #undef min
 #undef max
 #endif
 
-using namespace renderer;
+using namespace Renderer;
 
 namespace
 {
@@ -63,82 +61,9 @@ VkDeviceQueueCreateInfo detail::CreateQueues(const uint32_t familyIndex, const s
 	return createInfo;
 }
 
-void RendererVK::CreateSwapChain()
-{
-	const auto surface = LowVK::GetSurface();
-	const auto& device = *mDevice.get();
-	const auto& physicalDevice = *mPhysicalDevice.get();
-
-	VkBool32 surfaceSupported{ VK_FALSE };
-	LowVK::GetPhysicalDeviceSurfaceSupportKHR(0, surface, &surfaceSupported);
-
-	if (surfaceSupported)
-	{
-		const auto& format = mFormats.front();      // Get B8G8R8A8_unorm
-		const auto& presentMode = mPresentationModes.front();   // Immeadiate
-		VkExtent2D screenExtent;
-		screenExtent.width = ::width;
-		screenExtent.height = ::height;
-
-		uint32_t imageCount = mCapabilities.minImageCount + 1;
-
-		if (1/*mEnableTrippleBuffering*/)
-		{
-			if (mCapabilities.maxImageCount > 0 && imageCount > mCapabilities.maxImageCount)
-			{
-				imageCount = mCapabilities.maxImageCount;
-			}
-		}
-
-		VkSwapchainCreateInfoKHR createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = surface;
-		createInfo.minImageCount = imageCount;
-		createInfo.imageColorSpace = format.colorSpace;
-		createInfo.imageFormat = format.format;
-		createInfo.imageExtent = screenExtent;
-		createInfo.imageArrayLayers = 1;
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //Use transfer if I want to render to other buffer and apply post process and then copy;
-		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.queueFamilyIndexCount = 0; // Optional
-		createInfo.pQueueFamilyIndices = nullptr; // Optional
-		createInfo.preTransform = mCapabilities.currentTransform;
-		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		createInfo.presentMode = presentMode;
-		createInfo.clipped = VK_TRUE;
-		createInfo.oldSwapchain = VkSwapchainKHR{};
-
-		LowVK::CreateSwapchainKHR(&createInfo, nullptr, &mSwapChain);
-
-		LowVK::GetSwapchainImagesKHR(mSwapChain, mSwapChainImages);
-
-		mSwapChainImageViews.resize(mSwapChainImages.size());
-
-		for (size_t idx{ 0 }; idx < mSwapChainImageViews.size(); ++idx)
-		{
-			VkImageViewCreateInfo imageViewCreateInfo{};
-			imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			imageViewCreateInfo.image = mSwapChainImages[idx];
-			imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			imageViewCreateInfo.format = format.format;
-			imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-			imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-			imageViewCreateInfo.subresourceRange.levelCount = 1;
-			imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-			imageViewCreateInfo.subresourceRange.layerCount = 1;
-
-			LowVK::CreateImageView(&imageViewCreateInfo, nullptr, &mSwapChainImageViews[idx]);
-		}
-	}
-}
-
 void RendererVK::Initialize(void* window)
 {
-	LowVK::Initialize("Engine", glfwGetWin32Window((GLFWwindow*)window));
+	LowVK::Initialize("Engine", window);
 
 	mDevice = LowVK::GetDevice();
 	mPhysicalDevice = LowVK::GetPhysical();
@@ -162,39 +87,33 @@ void RendererVK::Initialize(void* window)
 		std::cout << "Queue count: " << queueFamily.queueCount << std::endl;
 	}
 
-	LowVK::GetDeviceQueue(0, 0, &mGraphicsQueue);
+	mGraphicsQueue = std::make_shared<VkQueue>();
+	LowVK::GetDeviceQueue(0, 0, mGraphicsQueue.get());
 
-	LowVK::GetPhysicalDeviceSurfaceCapabilitiesKHR(&mCapabilities);
-	LowVK::GetPhysicalDeviceSurfaceFormatsKHR(mFormats);
-	LowVK::GetPhysicalDeviceSurfacePresentModesKHR(mPresentationModes);
 
-	CreateSwapChain();
-
+	mCmdPool = std::make_shared<VkCommandPool>();
 	VkCommandPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.queueFamilyIndex = 0;
 
-	LowVK::CreateCommandPool(&poolInfo, nullptr, &mCmdPool);
+	LowVK::CreateCommandPool(&poolInfo, nullptr, mCmdPool.get());
+
+	mSwapChain = std::make_unique<SwapChainVK>();
+	mSwapChain->Initialize(this, ::width, ::height);
 }
 
 void RendererVK::Deinitialize()
 {
 	LowVK::DeviceWaitIdle();
 
-	for (auto& imageView : mSwapChainImageViews)
-	{
-		LowVK::DestroyImageView(imageView, nullptr);
-	}
-
-	LowVK::DestroySwapchainKHR(mSwapChain, nullptr);
-	LowVK::DestroyCommandPool(mCmdPool, nullptr);
+	LowVK::DestroyCommandPool(*mCmdPool.get(), nullptr);
 	LowVK::DestroyDescriptorSetLayout(mLayout, nullptr);
 	LowVK::Deinitialize();
 }
 
 void RendererVK::CreateBuffer(const BufferDesc& desc, const BufferData& data, std::shared_ptr<Buffer>& bufferObject)
 {
-	bufferObject = std::make_shared<renderer::Buffer>();
+	bufferObject = std::make_shared<Buffer>();
 
 	auto bufferVk = std::make_unique<BufferVK>();
 
@@ -248,7 +167,7 @@ void RendererVK::CreateBuffer(const BufferDesc& desc, const BufferData& data, st
 	LowVK::GetBufferMemoryRequirements(bufferVk->buffer, &memoryRequirements);
 
 	VkMemoryPropertyFlags memoryFlags;
-	if (desc.usage & renderer::BufferUsage::Staging)
+	if (desc.usage & BufferUsage::Staging)
 		memoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	else
 		memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -266,20 +185,7 @@ void RendererVK::CreateBuffer(const BufferDesc& desc, const BufferData& data, st
 
 void RendererVK::CopyBuffer(std::shared_ptr<Buffer>& srcBuffer, std::shared_ptr<Buffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size)
 {
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = mCmdPool;
-	allocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer cmdBuffer;
-	LowVK::AllocateCommandBuffers(&allocInfo, &cmdBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	LowVK::BeginCommandBuffer(cmdBuffer, &beginInfo);
+	OneTimeCommandListVK cmdBuf(mCmdPool, mGraphicsQueue);
 
 	VkBufferCopy copyInfo;
 	copyInfo.srcOffset = srcOffset; // Optional
@@ -289,27 +195,30 @@ void RendererVK::CopyBuffer(std::shared_ptr<Buffer>& srcBuffer, std::shared_ptr<
 	auto srcBufferVk = (BufferVK*)(srcBuffer->GetGpuResource());
 	auto dstBufferVk = (BufferVK*)(dstBuffer->GetGpuResource());
 
-	LowVK::CmdCopyBuffer(cmdBuffer, srcBufferVk->buffer, dstBufferVk->buffer, { copyInfo });
+	LowVK::CmdCopyBuffer(cmdBuf.GetHandle(), srcBufferVk->buffer, dstBufferVk->buffer, { copyInfo });
+}
 
-	LowVK::EndCommandBuffer(cmdBuffer);
+void RendererVK::DeleteBuffer(std::shared_ptr<Buffer>& bufferObject)
+{
+	auto gpuBuffer = (BufferVK*)(bufferObject->GetGpuResource());
+	LowVK::DestroyBuffer(gpuBuffer->buffer, nullptr);
+	LowVK::FreeMemory(gpuBuffer->memory, nullptr);
+}
 
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &cmdBuffer;
+void RendererVK::MapMemory(std::shared_ptr<Buffer>& bufferObject)
+{
+	//void* data{ nullptr };
 
-	LowVK::QueueSubmit(mGraphicsQueue, { submitInfo }, {});
-	LowVK::QueueWaitIdle(mGraphicsQueue);
+	//auto gpuBuffer = (const BufferVK*)(bufferObject->GetGpuResource());
 
-	// We could use a fence and wait with vkWaitForFences, or simply wait for the transfer queue to become idle with vkQueueWaitIdle. A fence would allow you to schedule multiple
-	// transfers simultaneously and wait for all of them complete, instead of executing one at a time. That may give the driver more opportunities to optimize.
-
-	LowVK::FreeCommandBuffers(mCmdPool, { cmdBuffer });
+	//LowVK::MapMemory(gpuBuffer->memory, 0, vertexData.size, 0, &data);
+	//memcpy(dataPtr, cube.vertices.data(), (size_t)vertexData.size);
+	//LowVK::UnmapMemory(gpuBuffer->memory);
 }
 
 void RendererVK::TransitionImageLayout(VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout)
 {
-	auto cmdBuffer = BeginRecording();
+	OneTimeCommandListVK cmdBuffer(mCmdPool, mGraphicsQueue);
 
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -355,9 +264,7 @@ void RendererVK::TransitionImageLayout(VkImage& image, VkImageLayout oldLayout, 
 		throw std::invalid_argument("unsupported layout transition!");
 	}
 
-	LowVK::CmdPipelineBarrier(cmdBuffer, sourceStage, destinationStage, 0, {}, {}, { barrier });
-
-	EndRecording(cmdBuffer);
+	LowVK::CmdPipelineBarrier(cmdBuffer.GetHandle(), sourceStage, destinationStage, 0, {}, {}, { barrier });
 };
 
 void RendererVK::CreateTexture(Texture& texture)
@@ -474,11 +381,16 @@ void RendererVK::CreateTexture(Texture& texture)
 	}*/
 }
 
+ISwapChain* RendererVK::GetSwapChain()
+{
+	return mSwapChain.get();
+}
+
 void RendererVK::CopyBufferToImage(const VkBuffer& buf, const VkImage & image, const uint32_t width, const uint32_t height)
 {
-	auto cmdBuffer = BeginRecording();
+	OneTimeCommandListVK cmdBuffer(mCmdPool, mGraphicsQueue);
 
-	VkBufferImageCopy region;
+	VkBufferImageCopy region{};
 	region.bufferOffset = 0;
 	region.bufferRowLength = 0;
 	region.bufferImageHeight = 0;
@@ -489,48 +401,7 @@ void RendererVK::CopyBufferToImage(const VkBuffer& buf, const VkImage & image, c
 	region.imageOffset = { 0, 0, 0 };
 	region.imageExtent = { width, height, 1 };
 
-	LowVK::CmdCopyBufferToImage(cmdBuffer, buf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, { region });
-	
-	EndRecording(cmdBuffer);
-}
-
-VkCommandBuffer renderer::RendererVK::BeginRecording() const
-{
-	//TODO: Make this a RAII class
-
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = mCmdPool;
-	allocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer cmdBuffer;
-	LowVK::AllocateCommandBuffers(&allocInfo, &cmdBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	LowVK::BeginCommandBuffer(cmdBuffer, &beginInfo);
-	return cmdBuffer;
-}
-
-void RendererVK::EndRecording(const VkCommandBuffer& cmdBuff) const
-{
-	LowVK::EndCommandBuffer(cmdBuff);
-
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &cmdBuff;
-
-	LowVK::QueueSubmit(mGraphicsQueue, { submitInfo }, {});
-	LowVK::QueueWaitIdle(mGraphicsQueue);
-
-	// We could use a fence and wait with vkWaitForFences, or simply wait for the transfer queue to become idle with vkQueueWaitIdle. A fence would allow you to schedule multiple
-	// transfers simultaneously and wait for all of them complete, instead of executing one at a time. That may give the driver more opportunities to optimize.
-
-	LowVK::FreeCommandBuffers(mCmdPool, { cmdBuff });
+	LowVK::CmdCopyBufferToImage(cmdBuffer.GetHandle(), buf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, { region });
 }
 
 VkImageView RendererVK::CreateImageView(const VkImage& image, VkFormat format, VkImageAspectFlagBits aspect)
@@ -601,19 +472,78 @@ void RendererVK::CreateDescriptorSetLayout()
 	LowVK::CreateDescriptorSetLayout(&layoutInfo, nullptr, &mLayout);
 }
 
-VkShaderModule RendererVK::CreateShader(const std::vector<char>& sourceCode)
+void RendererVK::CreateShader(std::shared_ptr<RendererEffect>& gpuEffect, const std::vector<char>& sourceCode)
 {
+	auto vulkanEffect = std::make_shared<EffectVK>();
+
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = sourceCode.size();
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
 
-	VkShaderModule module;
-	LowVK::CreateShaderModule(&createInfo, nullptr, &module);
-	return module;
+	LowVK::CreateShaderModule(&createInfo, nullptr, &vulkanEffect->module);
+
+	gpuEffect = std::move(vulkanEffect);
 }
 
-uint32_t renderer::FindMemoryType(uint32_t typeFilter, const VkMemoryPropertyFlags properties, const VkPhysicalDevice& physicalDevice)
+void RendererVK::CreatePipeline(Effect& effect)
+{
+	auto gpuVertexShader = (EffectVK*)effect.mVertexShader.get();
+	auto gpuFragmentShader = (EffectVK*)effect.mVertexShader.get();
+
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderStageInfo.module = gpuVertexShader->module;
+	vertShaderStageInfo.pName = "main";
+	vertShaderStageInfo.pSpecializationInfo = nullptr;
+
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragShaderStageInfo.module = gpuFragmentShader->module;
+	fragShaderStageInfo.pName = "main";
+
+}
+
+OneTimeCommandListVK::OneTimeCommandListVK(std::shared_ptr<VkCommandPool> cmdPool, std::shared_ptr<VkQueue> queue)
+	: mCmdPool(std::move(cmdPool))
+	, mSubmitQueue(std::move(queue))
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = *mCmdPool.get();
+	allocInfo.commandBufferCount = 1;
+
+	LowVK::AllocateCommandBuffers(&allocInfo, &mCommandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	LowVK::BeginCommandBuffer(mCommandBuffer, &beginInfo);
+}
+
+OneTimeCommandListVK::~OneTimeCommandListVK()
+{
+	LowVK::EndCommandBuffer(mCommandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &mCommandBuffer;
+
+	LowVK::QueueSubmit(*mSubmitQueue.get(), { submitInfo }, {});
+	LowVK::QueueWaitIdle(*mSubmitQueue.get());
+
+	// We could use a fence and wait with vkWaitForFences, or simply wait for the transfer queue to become idle with vkQueueWaitIdle. A fence would allow you to schedule multiple
+	// transfers simultaneously and wait for all of them complete, instead of executing one at a time. That may give the driver more opportunities to optimize.
+
+	LowVK::FreeCommandBuffers(*mCmdPool.get(), { mCommandBuffer });
+}
+
+uint32_t RendererVK::FindMemoryType(uint32_t typeFilter, const VkMemoryPropertyFlags properties, const VkPhysicalDevice & physicalDevice)
 {
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 	LowVK::GetPhysicalDeviceMemoryProperties(&memoryProperties);

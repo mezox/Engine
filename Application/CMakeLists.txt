@@ -23,7 +23,7 @@ add_executable(Application
 	${WIN32_APPLICATION_SRCS}
 	${WIN32_APPLICATION_RESOURCES})
 
-target_link_libraries(Application Renderer glfw ${GLFW_LIBRARIES})
+target_link_libraries(Application Renderer)
 set_target_properties(Application PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/Bin/Debug")
 
 else()

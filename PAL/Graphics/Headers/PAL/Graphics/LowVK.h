@@ -117,8 +117,6 @@ public:
 	static GRAPHICS_API void CmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
 	static GRAPHICS_API void CmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
-
-
 private:
 	static void SetupDebugCallback();
 	static void CreateSurface(void* winCreateFunc);
