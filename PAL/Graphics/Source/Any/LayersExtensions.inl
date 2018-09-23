@@ -17,10 +17,10 @@ const std::vector<const char*> LowVK::mEnabledInstanceExtensions =
 };
 #else
 #include <vulkan/vulkan_macos.h>
-const std::vector<const char*> extensions =
+const std::vector<const char*> LowVK::mEnabledInstanceExtensions =
 {
 	VK_KHR_SURFACE_EXTENSION_NAME,
-	VK_KHR_MACOS_SURFACE_EXTENSION_NAME,
+	VK_MVK_MACOS_SURFACE_EXTENSION_NAME,
 	VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 };
 #endif

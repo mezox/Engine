@@ -2,19 +2,23 @@ cmake_minimum_required(VERSION 3.7)
 
 project(PAL_Graphics)
 
-#if (${BUILD_SHARED_LIBS})
-	add_definitions("-D_GRAPHICSDLL")
+if (${BUILD_SHARED_LIBS})
+	message("Build shared libraries option ON")
+	#add_definitions("-D_GRAPHICSDLL")
 	#add_definitions("-DVK_NO_PROTOTYPES")
-#endif()
+else()
+	add_definitions("-D_NOEXPORT")
+endif()
+
+
+find_path(Vulkan_INCLUDE_DIR NAMES vulkan/vulkan.h PATHS "${VULKAN_SDK}/include")
+find_library(Vulkan_LIBRARY NAMES vulkan PATHS "${VULKAN_SDK}/lib")
+
+message("Vulkan SDK: " ${VULKAN_SDK})
+message("Vulkan include dir: " ${Vulkan_INCLUDE_DIR})
+message("Vulkan library dir: " ${Vulkan_LIBRARY})
 
 find_package(vulkan REQUIRED)
-
-if (TARGET_LINUX)
-	if (NOT GRAPHICS_SUBSYSTEM)
-		# default graphics system for Linux is X11
-		set(GRAPHICS_SUBSYSTEM "X11")
-	endif()
-endif()
 
 include_directories(
 	"Headers"
@@ -70,12 +74,21 @@ elseif (TARGET_LINUX)
 # ---- private sources -----
 	)
 
+	if (NOT GRAPHICS_SUBSYSTEM)
+		# default graphics system for Linux is X11
+		set(GRAPHICS_SUBSYSTEM "X11")
+	endif()
+
+elseif (TARGET_MACOS)
+	list(APPEND SOURCES
+# ---- public headers -----
+
+# ---- private sources -----
+	)
+
 endif()
 
 add_library(${PROJECT_NAME} ${SOURCES})
 
-#target_link_libraries(${PROJECT_NAME}
-#	Vulkan::Vulkan
-#)
-
+target_link_libraries(${PROJECT_NAME} Vulkan::Vulkan)
 target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/Headers/ ${CMAKE_CURRENT_SOURCE_DIR}/Headers/PAL/Graphics/)

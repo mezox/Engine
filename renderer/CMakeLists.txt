@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.7)
 project(Renderer)
 
-add_definitions(-D_RENDERERDLL)
+if(WIN32)
+	add_definitions(-D_RENDERERDLL)
+else()
+	add_definitions(-D_NOEXPORT)
+endif()
 
 include_directories (
 	${CMAKE_CURRENT_SOURCE_DIR}/interface/
@@ -30,9 +34,9 @@ set(RENDERER_PRIVATE_HEADERS
 
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Demo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/files.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector2.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector3.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector4.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector2.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector3.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector4.h
 
 	#3rdParty
 	${CMAKE_CURRENT_SOURCE_DIR}/include/stb_image.h
@@ -47,13 +51,26 @@ set(RENDERER_PRIVATE_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Object3D.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Effect.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Engine.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/src/WindowImpl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/RendererResourceStateVK.cpp
 )
 
-set(RENDERER_RESOURCES
-	${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.vert
-    ${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.frag
+if(WIN32)
+set(RENDERER_WIN32_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/src/WindowImpl.cpp
+)
+
+add_library(
+	${PROJECT_NAME}
+	${RENDERER_PUBLIC_HEADERS}
+	${RENDERER_PRIVATE_HEADERS}
+	${RENDERER_PRIVATE_SOURCES}
+	${RENDERER_WIN32_SOURCES}
+	${RENDERER_RESOURCES}
+)
+else()
+set(RENDERER_PRIVATE_SOURCES_OBJC
+	${CMAKE_CURRENT_SOURCE_DIR}/src/files.mm
+	${CMAKE_CURRENT_SOURCE_DIR}/src/WindowImplMac.cpp
 )
 
 add_library(
@@ -62,7 +79,9 @@ add_library(
 	${RENDERER_PRIVATE_HEADERS}
 	${RENDERER_PRIVATE_SOURCES}
 	${RENDERER_RESOURCES}
+	${RENDERER_PRIVATE_SOURCES_OBJC}
 )
+endif()
 
 target_link_libraries(${PROJECT_NAME}
 	PAL_Graphics
@@ -84,16 +103,32 @@ install(
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
-find_program(GLSLANG_VALIDATOR names glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin")
+if(TARGET_WIN32)
+	find_program(GLSLANG_VALIDATOR names glslangValidator HINTS "${GLSLANG_INSTALL_DIR}/bin")
 
-message(STATUS "GLSLANG_VALIDATOR: " ${GLSLANG_VALIDATOR})
-
-add_custom_command(#POST_BUILD
+	add_custom_command(#POST_BUILD
 					TARGET ${PROJECT_NAME}
 					COMMENT "Compiling cube vertex shader"
 					COMMAND ${GLSLANG_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.vert -o ${EXECUTABLE_OUTPUT_PATH}/Debug/resources/shaders/vert.spv)
 
-add_custom_command(	#POST_BUILD
+	add_custom_command(	#POST_BUILD
 					TARGET ${PROJECT_NAME}
 					COMMENT "Compiling cube fragment shader"
 					COMMAND ${GLSLANG_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.frag -o ${EXECUTABLE_OUTPUT_PATH}/Debug/resources/shaders/frag.spv)
+else()
+	find_program(GLSLANG_VALIDATOR names glslangValidator HINTS "${VULKAN_SDK}/bin")
+
+	add_custom_command(#POST_BUILD
+					TARGET ${PROJECT_NAME}
+					COMMENT "Compiling cube vertex shader"
+					COMMAND ${GLSLANG_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.vert -o ${EXECUTABLE_OUTPUT_PATH}/Debug/vert.spv)
+
+	add_custom_command(	#POST_BUILD
+					TARGET ${PROJECT_NAME}
+					COMMENT "Compiling cube fragment shader"
+					COMMAND ${GLSLANG_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.frag -o ${EXECUTABLE_OUTPUT_PATH}/Debug/frag.spv)
+
+endif()
+
+message(STATUS "GLSLANG_VALIDATOR: " ${GLSLANG_VALIDATOR})
+

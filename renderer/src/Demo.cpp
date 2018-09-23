@@ -8,6 +8,7 @@
 #include "RendererResourceStateVK.h"
 #include "WindowImpl.h"
 #include "SwapChainImpl.h"
+#include "files.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// for depth in range 0,1 instead of -1,1
 #include <glm/gtc/matrix_transform.hpp>
@@ -19,8 +20,8 @@
 
 namespace 
 {
-    uint32_t width = 1920;
-    uint32_t height = 1080;
+    uint32_t width = 1600;
+    uint32_t height = 990;
 }
 
 void RENDERER_API DemoApplication::initVulkan()
@@ -30,7 +31,7 @@ void RENDERER_API DemoApplication::initVulkan()
 
 	mWindow = std::move(win);
     
-    mRenderer.Initialize(mWindow->GetNativeHandle());
+    mRenderer.Initialize(mWindow->GetNativeHandle() ? mWindow->GetNativeHandle() : view);
 
 	Renderer::Cube cube;
 	/*Renderer::Mesh cube;
@@ -44,8 +45,8 @@ void RENDERER_API DemoApplication::initVulkan()
 	const auto vertSh = std::string("resources/shaders/vert.spv");
 	const auto fragSh = std::string("resources/shaders/frag.spv");
 #else
-	const auto vertSh = bundlePath("vert");
-	const auto fragSh = bundlePath("frag");
+	const auto vertSh = bundlePath("vert", "spv");
+	const auto fragSh = bundlePath("frag", "spv");
 #endif
 
 	mEffect = std::make_unique<Renderer::Effect>(&mRenderer);
@@ -65,9 +66,11 @@ void RENDERER_API DemoApplication::initVulkan()
 		mRenderer.CreateBuffer(desc, data, mUniformBuffers[i]);
 	}
 
-	// ------------------------------------------------
-	mTexture = std::make_unique<Renderer::Texture>(&mRenderer, "resources/textures/chalet.jpg");
-	// -------------------------------------------------
+#ifdef WIN32
+    mTexture = std::make_unique<Renderer::Texture>(&mRenderer, "resources/textures/chalet.jpg");
+#else
+    mTexture = std::make_unique<Renderer::Texture>(&mRenderer, bundlePath("chalet", "jpg"));
+#endif
 
 	mRenderer.CreateDescriptorSetLayout();
 	const auto setLayout = mRenderer.GetDescriptorSetLayout();
@@ -147,7 +150,7 @@ void RENDERER_API DemoApplication::initVulkan()
     LowVK::CreatePipelineLayout(&pipelineLayoutInfo, nullptr, &mPipelineLayout);
     
 	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM; /////////
+	colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -230,7 +233,7 @@ void RENDERER_API DemoApplication::initVulkan()
 	fragShaderStageInfo.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shaderStages[]{ vertShaderStageInfo, fragShaderStageInfo };
-
+    
 	// Vertex input
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -436,7 +439,7 @@ void RENDERER_API DemoApplication::initVulkan()
     
    //-------------------------------------------------
     
-    mCommandBuffers.resize(3);
+    mCommandBuffers.resize(mRenderer.GetSwapChain()->GetImageCount());
     
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -446,16 +449,16 @@ void RENDERER_API DemoApplication::initVulkan()
     
     LowVK::AllocateCommandBuffers(&allocInfo, mCommandBuffers.data());
 
-	auto swapChain = (Renderer::SwapChainVK*)mRenderer.GetSwapChain();
-	const auto& swapChainFramebuffers = swapChain->GetFramebuffers();
-
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mImageAvailableSemaphore);
 	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mRenderFinishedSemaphore);
 
+    auto swapChain = (Renderer::SwapChainVK*)mRenderer.GetSwapChain();
 	swapChain->SetSemaphore(&mRenderer, ::width, ::height, mRenderer.GetGraphicsQueue(), mRenderFinishedSemaphore, mImageAvailableSemaphore, mRenderPass);
+    
+    const auto& swapChainFramebuffers = swapChain->GetFramebuffers();
     
 	for (size_t i = 0; i < mCommandBuffers.size(); i++)
 	{

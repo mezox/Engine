@@ -28,46 +28,42 @@ set_target_properties(Application PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CM
 
 else()
 #macOS
-#
-#set(MACOS_APPLICATION_HEADERS
-#	${CMAKE_CURRENT_SOURCE_DIR}/Demo.h
-#    ${CMAKE_CURRENT_SOURCE_DIR}/Application.h
-#    ${CMAKE_CURRENT_SOURCE_DIR}/DemoViewController.h
-#    ${CMAKE_CURRENT_SOURCE_DIR}/files.h
-#
-#    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector2.h
-#    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector3.h
-#    ${CMAKE_CURRENT_SOURCE_DIR}/Math/Vector4.h
-#)
-#
-#set(MACOS_APPLICATION_SRCS
-#	${CMAKE_CURRENT_SOURCE_DIR}/Demo.cpp
-#    ${CMAKE_CURRENT_SOURCE_DIR}/main.mm
-#    ${CMAKE_CURRENT_SOURCE_DIR}/Application.mm
-#    ${CMAKE_CURRENT_SOURCE_DIR}/DemoViewController.mm
-#    ${CMAKE_CURRENT_SOURCE_DIR}/files.mm
-#)
-#
-#set(MACOS_APPLICATION_RESOURCES
-#    ${CMAKE_CURRENT_SOURCE_DIR}/Main.storyboard
-#    ${CMAKE_CURRENT_SOURCE_DIR}/vert.spv
-#    ${CMAKE_CURRENT_SOURCE_DIR}/frag.spv
-#)
-#
-#add_definitions(-DVK_USE_PLATFORM_MACOS_MVK)
-#
-#add_executable(TestApp MACOSX_BUNDLE
-#	${MACOS_APPLICATION_HEADERS}
-#	${MACOS_APPLICATION_SRCS}
-#	${MACOS_APPLICATION_RESOURCES})
-#
-#target_link_libraries(TestApp Vulkan::Vulkan "-framework AppKit -framework QuartzCore")
-#
-#set_target_properties(TestApp PROPERTIES
-#    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
-#)
-#
-#set_source_files_properties(${MACOS_APPLICATION_RESOURCES} PROPERTIES
-#    MACOSX_PACKAGE_LOCATION "Resources"
-#)
+add_definitions("-D_NOEXPORT")
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/macOS/include)
+
+
+set(MACOS_APPLICATION_HEADERS
+   ${CMAKE_CURRENT_SOURCE_DIR}/macOS/include/Application.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/macOS/include/DemoViewController.h
+)
+
+set(MACOS_APPLICATION_SRCS
+   ${CMAKE_CURRENT_SOURCE_DIR}/macOS/src/main.mm
+   ${CMAKE_CURRENT_SOURCE_DIR}/macOS/src/Application.mm
+   ${CMAKE_CURRENT_SOURCE_DIR}/macOS/src/DemoViewController.mm
+)
+
+set(MACOS_APPLICATION_RESOURCES
+   ${CMAKE_CURRENT_SOURCE_DIR}/macOS/resources/Main.storyboard
+   ${EXECUTABLE_OUTPUT_PATH}/Debug/frag.spv
+   ${EXECUTABLE_OUTPUT_PATH}/Debug/vert.spv
+)
+
+add_definitions(-DVK_USE_PLATFORM_MACOS_MVK)
+
+add_executable(Application MACOSX_BUNDLE
+	${MACOS_APPLICATION_HEADERS}
+	${MACOS_APPLICATION_SRCS}
+	${MACOS_APPLICATION_RESOURCES})
+
+target_link_libraries(Application Renderer "-framework AppKit -framework QuartzCore")
+
+set_target_properties(Application PROPERTIES
+   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/macOS/resources/Info.plist
+)
+
+set_source_files_properties(${RENDERER_RESOURCES} PROPERTIES
+   MACOSX_PACKAGE_LOCATION "Resources"
+)
 endif()

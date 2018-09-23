@@ -53,8 +53,16 @@ SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/Bin/${CMAKE_BUILD_TYPE} CACHE PAT
 message("Library output path: " ${LIBRARY_OUTPUT_PATH})
 message("Executable output path: " ${EXECUTABLE_OUTPUT_PATH})
 
+set(RENDERER_RESOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/renderer/resources/triangle.vert
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/resources/triangle.frag
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/resources/chalet.jpg
+)
+
 if(WIN32)
 	set(TARGET_WINDOWS 1)
+else()
+	set(TARGET_MACOS 1)
 endif()
 
 add_subdirectory(External)

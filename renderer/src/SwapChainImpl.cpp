@@ -28,24 +28,25 @@ void SwapChainVK::Initialize(IRenderer* renderer, const uint32_t width, const ui
 	{
 		const auto& format = mFormats.front();      // Get B8G8R8A8_unorm
 		const auto& presentMode = mPresentationModes.front();   // Immeadiate
-		VkExtent2D screenExtent;
+		
+        VkExtent2D screenExtent;
 		screenExtent.width = width;
 		screenExtent.height = height;
 
-		uint32_t imageCount = mCapabilities.minImageCount + 1;
+		auto imagesCount = mCapabilities.minImageCount + 1;
 
 		if (1/*mEnableTrippleBuffering*/)
 		{
-			if (mCapabilities.maxImageCount > 0 && imageCount > mCapabilities.maxImageCount)
+			if (mCapabilities.maxImageCount > 0 && imagesCount > mCapabilities.maxImageCount)
 			{
-				imageCount = mCapabilities.maxImageCount;
+				imagesCount = mCapabilities.maxImageCount;
 			}
 		}
 
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		createInfo.surface = surface;
-		createInfo.minImageCount = imageCount;
+		createInfo.minImageCount = imagesCount;
 		createInfo.imageColorSpace = format.colorSpace;
 		createInfo.imageFormat = format.format;
 		createInfo.imageExtent = screenExtent;
@@ -111,11 +112,11 @@ void SwapChainVK::SetSemaphore(IRenderer* renderer, const uint32_t width, const 
 	mImgAvailable = imgAvailable;
 	mRenderPass = pass;
 
-	mFramebuffers.resize(/*mSwapChainImages.size()*/3);
+	mFramebuffers.resize(mImages.size());
 
 	mDepthTexture = std::make_unique<Texture>(renderer, ImageFormat::DEPTH, ImageUsage::DepthAttachment, width, height);
 
-	for (size_t i = 0; i < /*mSwapChainImages.size()*/3; i++)
+	for (size_t i = 0; i < mImages.size(); i++)
 	{
 		auto depthTex = (RendererTextureVK*)mDepthTexture->GetRendererTexture();
 
@@ -153,4 +154,9 @@ void SwapChainVK::Present()
 	presentInfo.pResults = nullptr; // Optional
 
 	LowVK::QueuePresentKHR(mPresentQueue, &presentInfo);
+}
+
+const uint8_t SwapChainVK::GetImageCount() const
+{
+    return static_cast<uint8_t>(mImages.size());
 }

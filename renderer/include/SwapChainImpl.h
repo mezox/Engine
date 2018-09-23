@@ -21,6 +21,8 @@ namespace Renderer
 
 		uint32_t SwapBuffers() override;
 		void Present()override;
+        
+        const uint8_t GetImageCount() const override;
 
 		const VkSwapchainKHR& GetSwapChain() const { return mHandle; }
 		const std::vector<VkSurfaceFormatKHR>& GetFormats() const { return mFormats; }

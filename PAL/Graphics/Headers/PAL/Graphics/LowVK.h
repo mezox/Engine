@@ -10,7 +10,6 @@
 #define VK_NO_PROTOTYPES
 #endif
 
-#define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
 #define VK_CHECK_RESULT(f)																				\
@@ -121,11 +120,14 @@ private:
 	static void SetupDebugCallback();
 	static void CreateSurface(void* winCreateFunc);
 
-	static void LoadFunctionPointers();
+    static void LoadGlobalFunctions();
+	static void LoadInstanceFunctions();
 	static void LoadInstanceExtensions();
 	static void LoadDeviceFunctions();
 
 private:
+    static void* mVulkanLibrary;
+    
 	static const std::vector<const char*> mEnabledInstanceValidationLayers;
 	static const std::vector<const char*> mEnabledInstanceExtensions;
 	static const std::vector<const char*> mEnabledDeviceValidationLayers;

@@ -4,7 +4,7 @@
 #include <vector>
 #include <fstream>
 
-const char* bundlePath(const char* file);
+const char* bundlePath(const char* file, const char* ext);
 
 static std::vector<char> readFile(const std::string& filename)
 {
