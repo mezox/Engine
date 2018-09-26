@@ -57,8 +57,6 @@ private:
     VkSemaphore mImageAvailableSemaphore;
     VkSemaphore mRenderFinishedSemaphore;
     
-    Renderer::RendererVK mRenderer;
-    
     std::shared_ptr<Renderer::Buffer> mTriangleVBO;
     std::shared_ptr<Renderer::Buffer> mTriangleIBO;
 

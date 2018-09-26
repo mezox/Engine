@@ -1,14 +1,15 @@
 #include "Demo.h"
 
-#include <iostream>
-#include <fstream>
 #include "RendererVK.h"
 #include "Texture.h"
 #include "Object3D.h"
 #include "RendererResourceStateVK.h"
-#include "WindowImpl.h"
+#include "Window.h"
 #include "SwapChainImpl.h"
+#include "Engine.h"
 #include "files.h"
+#include "RenderAPIImpl.h"
+#include <PAL/Graphics/LowVK.h>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// for depth in range 0,1 instead of -1,1
 #include <glm/gtc/matrix_transform.hpp>
@@ -18,26 +19,31 @@
 #include <chrono>
 #endif
 
+using namespace Engine;
+
 namespace 
 {
-    uint32_t width = 1600;
-    uint32_t height = 990;
+    uint32_t width = 1920;
+    uint32_t height = 1080;
 }
 
 void RENDERER_API DemoApplication::initVulkan()
 {
-	auto win = std::make_unique<Engine::Window>();
-	win->Initialize();
+    EngineServiceLocator::Provide(CreateEngineService());
+    EngineServiceLocator::Service()->Initialize();
+    mWindow = EngineServiceLocator::Service()->CreateWindow();
 
-	mWindow = std::move(win);
-    
+    auto* renderer = (Engine::VulkanRenderAPI*)Engine::RenderAPIServiceLocator::Service().get();
+    auto& mRenderer = *renderer;
     mRenderer.Initialize(mWindow->GetNativeHandle() ? mWindow->GetNativeHandle() : view);
+    
+    mWindow->CreateSwapChain();
 
 	Renderer::Cube cube;
 	/*Renderer::Mesh cube;
 	cube.Load("resources/models/chalet.obj");
 */
-	mDevice = mRenderer.GetDevice();
+    mDevice = mRenderer.GetDevice();
 
 	mCameraPosition = glm::vec3(0.0f, 1.0f, 3.0f);
     
@@ -49,13 +55,11 @@ void RENDERER_API DemoApplication::initVulkan()
 	const auto fragSh = bundlePath("frag", "spv");
 #endif
 
-	mEffect = std::make_unique<Renderer::Effect>(&mRenderer);
+	mEffect = std::make_unique<Renderer::Effect>();
 	mEffect->Build(vertSh, fragSh);
    
 
 	// -------- Create uniform buffer -----------------
-	VkDeviceSize bufferSize = sizeof(CameraTransform);
-
 	mUniformBuffers.resize(/*mSwapChainImages.size()*/3);
 
 	for (size_t i = 0; i < /*mSwapChainImages.size()*/3; ++i)
@@ -67,9 +71,9 @@ void RENDERER_API DemoApplication::initVulkan()
 	}
 
 #ifdef WIN32
-    mTexture = std::make_unique<Renderer::Texture>(&mRenderer, "resources/textures/chalet.jpg");
+    mTexture = std::make_unique<Renderer::Texture>("resources/textures/chalet.jpg");
 #else
-    mTexture = std::make_unique<Renderer::Texture>(&mRenderer, bundlePath("chalet", "jpg"));
+    mTexture = std::make_unique<Renderer::Texture>(bundlePath("chalet", "jpg"));
 #endif
 
 	mRenderer.CreateDescriptorSetLayout();
@@ -439,7 +443,7 @@ void RENDERER_API DemoApplication::initVulkan()
     
    //-------------------------------------------------
     
-    mCommandBuffers.resize(mRenderer.GetSwapChain()->GetImageCount());
+    mCommandBuffers.resize(mWindow->GetSwapChain()->GetImageCount());
     
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -455,8 +459,8 @@ void RENDERER_API DemoApplication::initVulkan()
 	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mImageAvailableSemaphore);
 	LowVK::CreateSemaphores(&semaphoreInfo, nullptr, &mRenderFinishedSemaphore);
 
-    auto swapChain = (Renderer::SwapChainVK*)mRenderer.GetSwapChain();
-	swapChain->SetSemaphore(&mRenderer, ::width, ::height, mRenderer.GetGraphicsQueue(), mRenderFinishedSemaphore, mImageAvailableSemaphore, mRenderPass);
+    auto swapChain = (Renderer::SwapChainVK*)mWindow->GetSwapChain();
+	swapChain->SetSemaphore(::width, ::height, mRenderer.GetGraphicsQueue(), mRenderFinishedSemaphore, mImageAvailableSemaphore, mRenderPass);
     
     const auto& swapChainFramebuffers = swapChain->GetFramebuffers();
     
@@ -525,14 +529,19 @@ void RENDERER_API DemoApplication::initVulkan()
 
 DemoApplication::DemoApplication()
 {
+    std::cout << "Created Demo Application" << std::endl;
 }
 
 DemoApplication::~DemoApplication()
 {
+    std::cout << "Destroyed Demo Application" << std::endl;
 }
 
 void DemoApplication::cleanup()
 {
+    auto* renderer = (Engine::VulkanRenderAPI*)Engine::RenderAPIServiceLocator::Service().get();
+    auto& mRenderer = *renderer;
+    
 	LowVK::DestroyDescriptorPool(mDescriptorPool, nullptr);
 
 	mTexture->ReleaseFromServer();
@@ -550,11 +559,16 @@ void DemoApplication::cleanup()
 	//vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 
 	mRenderer.Deinitialize();
+    
+    Engine::RenderAPIServiceLocator::Provide(nullptr);
 }
 
 void DemoApplication::draw()
-{   
-	auto swapChain = mRenderer.GetSwapChain();
+{
+    auto* renderer = (Engine::VulkanRenderAPI*)Engine::RenderAPIServiceLocator::Service().get();
+    auto& mRenderer = *renderer;
+    
+	auto swapChain = mWindow->GetSwapChain();
 	const auto imageIndex = swapChain->SwapBuffers();
 
 	// ------- Update Uniform buffer object ----------
@@ -596,7 +610,7 @@ void DemoApplication::draw()
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
     
-	auto& presentQueue = mRenderer.GetGraphicsQueue();
+	auto presentQueue = mRenderer.GetGraphicsQueue();
 	LowVK::QueueSubmit(presentQueue, { submitInfo }, {});
     
 	swapChain->Present();

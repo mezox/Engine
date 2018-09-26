@@ -11,11 +11,15 @@
 
 using namespace Renderer;
 
-void SwapChainVK::Initialize(IRenderer* renderer, const uint32_t width, const uint32_t height)
+SwapChainVK::SwapChainVK()
+{}
+
+SwapChainVK::~SwapChainVK()
+{}
+
+void SwapChainVK::Initialize(const uint32_t width, const uint32_t height)
 {
 	const auto surface = LowVK::GetSurface();
-	const auto& device = LowVK::GetDevice().get();
-	const auto& physicalDevice = LowVK::GetPhysical().get();
 
 	LowVK::GetPhysicalDeviceSurfaceCapabilitiesKHR(&mCapabilities);
 	LowVK::GetPhysicalDeviceSurfaceFormatsKHR(mFormats);
@@ -105,7 +109,7 @@ void SwapChainVK::Destroy()
 	LowVK::DestroySwapchainKHR(mHandle, nullptr);
 }
 
-void SwapChainVK::SetSemaphore(IRenderer* renderer, const uint32_t width, const uint32_t height, VkQueue present, VkSemaphore renderFinished, VkSemaphore imgAvailable, VkRenderPass pass)
+void SwapChainVK::SetSemaphore(const uint32_t width, const uint32_t height, VkQueue present, VkSemaphore renderFinished, VkSemaphore imgAvailable, VkRenderPass pass)
 {
 	mSemaphore = renderFinished;
 	mPresentQueue = present;
@@ -114,7 +118,7 @@ void SwapChainVK::SetSemaphore(IRenderer* renderer, const uint32_t width, const 
 
 	mFramebuffers.resize(mImages.size());
 
-	mDepthTexture = std::make_unique<Texture>(renderer, ImageFormat::DEPTH, ImageUsage::DepthAttachment, width, height);
+	mDepthTexture = std::make_unique<Texture>(ImageFormat::DEPTH, ImageUsage::DepthAttachment, width, height);
 
 	for (size_t i = 0; i < mImages.size(); i++)
 	{

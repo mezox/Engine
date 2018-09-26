@@ -3,21 +3,26 @@
 #include <memory>
 #include "RendererBase.h"
 
-namespace Renderer
+namespace Engine
 {
+    class IWindow;
+    
 	class RENDERER_API IEngine
 	{
 	public:
 		virtual ~IEngine() = default;
 
-		virtual void StartFrame() {}
-		virtual void Update() {}
-		virtual void EndFrame() {}
+        virtual void Initialize() = 0;
+        virtual std::unique_ptr<IWindow> CreateWindow() = 0;
+        virtual void StartFrame() = 0;
+		virtual void Update() = 0;
+		virtual void EndFrame() = 0;
+        virtual void DeInitialize() = 0;
 	};
 
-	RENDERER_API std::shared_ptr<IEngine> CreateEngineService();
+    std::shared_ptr<IEngine> CreateEngineService();
 
-	class RENDERER_API EngineServiceLocator
+	class EngineServiceLocator
 	{
 	public:
 		static void Provide(std::shared_ptr<IEngine> service)
@@ -39,13 +44,16 @@ namespace Renderer
 		static std::shared_ptr<IEngine> mService;
 	};
 
-	class Engine : public IEngine
+	class ImmersiveEngine : public IEngine
 	{
 	public:
-		Engine();
+		ImmersiveEngine();
 
+        virtual void Initialize() override;
+        virtual std::unique_ptr<IWindow> CreateWindow() override;
 		virtual void StartFrame() override;
 		virtual void Update() override;
 		virtual void EndFrame() override;
+        virtual void DeInitialize() override;
 	};
 }

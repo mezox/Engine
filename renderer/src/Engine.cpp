@@ -2,30 +2,48 @@
 
 #include <iostream>
 
-using namespace Renderer;
+#include "RenderAPIImpl.h"
+#include "WindowImpl.h"
+
+using namespace Engine;
 
 std::shared_ptr<IEngine> EngineServiceLocator::mService = nullptr;
 
-std::shared_ptr<IEngine> Renderer::CreateEngineService()
+std::shared_ptr<IEngine> Engine::CreateEngineService()
 {
-	return std::make_shared<Engine>();
+	return std::make_shared<ImmersiveEngine>();
 }
 
-Engine::Engine()
+ImmersiveEngine::ImmersiveEngine()
 {
 	std::cout << "Created Engine" << std::endl;
 }
 
-void Engine::StartFrame()
+std::unique_ptr<IWindow> ImmersiveEngine::CreateWindow()
+{
+    return std::make_unique<Window>();
+}
+
+void ImmersiveEngine::Initialize()
+{
+    RenderAPIServiceLocator::Provide(CreateVulkanRenderBackEnd());
+}
+
+void ImmersiveEngine::StartFrame()
 {
 	std::cout << "Engine Start Frame" << std::endl;
 }
 
-void Engine::Update()
+void ImmersiveEngine::Update()
 {
 }
 
-void Engine::EndFrame()
+void ImmersiveEngine::EndFrame()
 {
 	std::cout << "Engine Finish Frame" << std::endl;
+}
+
+void ImmersiveEngine::DeInitialize()
+{
+    RenderAPIServiceLocator::Provide(nullptr);
 }

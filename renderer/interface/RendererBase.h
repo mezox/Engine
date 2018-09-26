@@ -1,7 +1,5 @@
 #pragma once
 
-#define _NOEXPORT
-
 #ifndef RENDERER_API
 #	ifdef _NOEXPORT
 #		define RENDERER_API

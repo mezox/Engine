@@ -20,6 +20,8 @@ set(RENDERER_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/interface/Buffer.h
 	${CMAKE_CURRENT_SOURCE_DIR}/interface/Window.h
 	${CMAKE_CURRENT_SOURCE_DIR}/interface/SwapChain.h
+	${CMAKE_CURRENT_SOURCE_DIR}/interface/RenderAPI.h
+	${CMAKE_CURRENT_SOURCE_DIR}/interface/BufferTypes.h
 )
 
 set(RENDERER_PRIVATE_HEADERS
@@ -31,6 +33,7 @@ set(RENDERER_PRIVATE_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Engine.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/WindowImpl.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/RendererResourceStateVK.h
+	${CMAKE_CURRENT_SOURCE_DIR}/include/RenderAPIImpl.h
 
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Demo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/files.h
@@ -52,6 +55,7 @@ set(RENDERER_PRIVATE_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Effect.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Engine.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/RendererResourceStateVK.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/RenderAPIImpl.cpp
 )
 
 if(WIN32)

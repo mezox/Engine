@@ -6,7 +6,6 @@
 namespace Renderer
 {
 	class RendererEffect;
-	class RendererVK;
 
 	struct PipelineKey
 	{
@@ -17,16 +16,11 @@ namespace Renderer
 	{
 	public:
 		Effect() = default;
-		Effect(RendererVK* renderer);
 
 		void Build(const std::string& vertex, const std::string& fragment);
 
 	public:
 		std::shared_ptr<RendererEffect>	mVertexShader;
 		std::shared_ptr<RendererEffect>	mFragmentShader;
-
-	private:
-		RendererVK* mRenderer;
-
 	};
 }

@@ -1,18 +1,22 @@
 #include <Renderer/include/Texture.h>
-#include <Renderer/include/RendererVK.h>
+#include "RenderAPI.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <Renderer/include/stb_image.h>
 
 using namespace Renderer;
 
-Texture::Texture(IRenderer* renderer, const std::string& path)
-	: mRenderer(renderer)
+Texture::Texture()
+{}
+
+Texture::~Texture()
+{}
+
+Texture::Texture(const std::string& path)
 {
 	int texWidth, texHeight, texChannels;
 	mData = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	
-	mSize = texWidth * texHeight * 4;
+    
 	mWidth = texWidth;
 	mHeight = texHeight;
 
@@ -24,24 +28,53 @@ Texture::Texture(IRenderer* renderer, const std::string& path)
 	mUsage = ImageUsage::Sampled;
 	mFormat = ImageFormat::RGBA8;
 
-	auto vkRenderer = (RendererVK*)mRenderer;
-	vkRenderer->CreateTexture(*this);
+    auto renderer = Engine::RenderAPIServiceLocator::Service();
+	renderer->CreateTexture(*this);
 }
 
-Texture::Texture(IRenderer* renderer, ImageFormat format, ImageUsage usage, uint32_t width, uint32_t height)
-	: mRenderer(renderer)
-	, mFormat(format)
-	, mUsage(usage)
-	, mWidth(width)
+Texture::Texture(ImageFormat format, ImageUsage usage, uint32_t width, uint32_t height)
+    : mWidth(width)
 	, mHeight(height)
+    , mFormat(format)
+    , mUsage(usage)
 {
-	auto vkRenderer = (RendererVK*)mRenderer;
-	vkRenderer->CreateTexture(*this);
+    auto renderer = Engine::RenderAPIServiceLocator::Service();
+    renderer->CreateTexture(*this);
 }
 
 void Texture::SetRendererResource(std::unique_ptr<RendererTexture> resource)
 {
 	mTexture = std::move(resource); 
+}
+
+const RendererTexture* Texture::GetRendererTexture() const
+{
+    return mTexture.get();
+}
+
+const size_t Texture::GetSize() const
+{
+    return mWidth * mHeight * 4;
+}
+
+const uint32_t Texture::GetWidth() const
+{
+    return mWidth;
+}
+
+const uint32_t Texture::GetHeight() const
+{
+    return mHeight;
+}
+
+const ImageFormat Texture::GetFormat() const
+{
+    return mFormat;
+}
+
+const ImageUsage Texture::GetUsage() const
+{
+    return mUsage;
 }
 
 void Texture::ClearLocalData()

@@ -9,15 +9,17 @@
 namespace Renderer
 {
 	class Texture;
-	class IRenderer;
 
 	class SwapChainVK : public ISwapChain
 	{
 	public:
-		void Initialize(IRenderer* renderer, const uint32_t width, const uint32_t height) override;
+        SwapChainVK();
+        ~SwapChainVK();
+        
+		void Initialize(const uint32_t width, const uint32_t height) override;
 		void Destroy() override;
 
-		void SetSemaphore(IRenderer* renderer, const uint32_t width, const uint32_t height, VkQueue present, VkSemaphore renderFinished, VkSemaphore imgAvailable, VkRenderPass pass);
+		void SetSemaphore(const uint32_t width, const uint32_t height, VkQueue present, VkSemaphore renderFinished, VkSemaphore imgAvailable, VkRenderPass pass);
 
 		uint32_t SwapBuffers() override;
 		void Present()override;

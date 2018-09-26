@@ -3,6 +3,11 @@
 #include <cstdint>
 #include "RendererBase.h"
 
+namespace Renderer
+{
+    class ISwapChain;
+}
+
 namespace Engine
 {
 	class RENDERER_API IWindow
@@ -14,6 +19,11 @@ namespace Engine
 		virtual void Update() = 0;
 		virtual void GetSize(uint16_t& x, uint16_t& y) const = 0;
 		virtual void* GetNativeHandle() const = 0;
+        virtual void CreateSwapChain() = 0;
+        virtual Renderer::ISwapChain* GetSwapChain() const = 0;
+        
+        virtual void AcquireSwapChainImage() = 0;
+        virtual void SwapBuffers() = 0;
 	};
 
 	class RENDERER_API IInputHandler
