@@ -29,6 +29,7 @@ set_target_properties(Application PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CM
 else()
 #macOS
 add_definitions("-D_NOEXPORT")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++17 -stdlib=libc++")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/macOS/include)
 
@@ -46,8 +47,6 @@ set(MACOS_APPLICATION_SRCS
 
 set(MACOS_APPLICATION_RESOURCES
    ${CMAKE_CURRENT_SOURCE_DIR}/macOS/resources/Main.storyboard
-   ${EXECUTABLE_OUTPUT_PATH}/Debug/frag.spv
-   ${EXECUTABLE_OUTPUT_PATH}/Debug/vert.spv
 )
 
 add_definitions(-DVK_USE_PLATFORM_MACOS_MVK)

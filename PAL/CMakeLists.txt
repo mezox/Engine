@@ -5,3 +5,4 @@ project(PAL)
 SET(TARGET_PROJECT_FOLDER "${TARGET_PROJECT_FOLDER}/PAL (Platform Abstraction Layer)")
 
 add_subdirectory(Graphics)
+add_subdirectory(FileSystem)
