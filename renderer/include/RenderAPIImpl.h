@@ -16,8 +16,6 @@ namespace Engine
     class VulkanRenderAPI : public IRenderAPI
     {
     public:
-        VulkanRenderAPI();
-        
         // IRenderAPI
         virtual void Initialize(void* window) override;
         virtual void CreateShader(std::shared_ptr<Renderer::RendererEffect>& gpuEffect, const std::vector<char>& sourceCode) override;

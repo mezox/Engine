@@ -4,8 +4,10 @@
 
 #include "RenderAPIImpl.h"
 #include "WindowImpl.h"
+#include <PAL/FileSystem/LowFileSystem.h>
 
 using namespace Engine;
+using namespace PAL::FileSystem;
 
 std::shared_ptr<IEngine> EngineServiceLocator::mService = nullptr;
 
@@ -26,7 +28,10 @@ std::unique_ptr<IWindow> ImmersiveEngine::CreateWindow()
 
 void ImmersiveEngine::Initialize()
 {
+    FileSystemServiceLocator::Provide(CreateFileSystemService());
     RenderAPIServiceLocator::Provide(CreateVulkanRenderBackEnd());
+    
+    FileSystemServiceLocator::Service()->Initialize();
 }
 
 void ImmersiveEngine::StartFrame()
@@ -45,5 +50,8 @@ void ImmersiveEngine::EndFrame()
 
 void ImmersiveEngine::DeInitialize()
 {
+    FileSystemServiceLocator::Service()->DeInitialize();
+    
     RenderAPIServiceLocator::Provide(nullptr);
+    FileSystemServiceLocator::Provide(nullptr);
 }

@@ -98,11 +98,6 @@ std::shared_ptr<IRenderAPI> Engine::CreateVulkanRenderBackEnd()
 {
     return std::make_shared<VulkanRenderAPI>();
 }
-
-VulkanRenderAPI::VulkanRenderAPI()
-{
-    std::cout << "Created Vulkan Render API" << std::endl;
-}
     
 void VulkanRenderAPI::Initialize(void* window)
 {

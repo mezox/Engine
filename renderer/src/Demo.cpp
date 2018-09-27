@@ -7,9 +7,9 @@
 #include "Window.h"
 #include "SwapChainImpl.h"
 #include "Engine.h"
-#include "files.h"
 #include "RenderAPIImpl.h"
 #include <PAL/Graphics/LowVK.h>
+#include <PAL/FileSystem/LowFileSystem.h>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE			// for depth in range 0,1 instead of -1,1
 #include <glm/gtc/matrix_transform.hpp>
@@ -20,6 +20,7 @@
 #endif
 
 using namespace Engine;
+using namespace PAL::FileSystem;
 
 namespace 
 {
@@ -47,13 +48,8 @@ void RENDERER_API DemoApplication::initVulkan()
 
 	mCameraPosition = glm::vec3(0.0f, 1.0f, 3.0f);
     
-#ifdef WIN32
-	const auto vertSh = std::string("resources/shaders/vert.spv");
-	const auto fragSh = std::string("resources/shaders/frag.spv");
-#else
-	const auto vertSh = bundlePath("vert", "spv");
-	const auto fragSh = bundlePath("frag", "spv");
-#endif
+    const auto vertSh = FileSystemServiceLocator::Service()->GetFilePath("vert.spv");
+    const auto fragSh = FileSystemServiceLocator::Service()->GetFilePath("frag.spv");
 
 	mEffect = std::make_unique<Renderer::Effect>();
 	mEffect->Build(vertSh, fragSh);
@@ -70,11 +66,8 @@ void RENDERER_API DemoApplication::initVulkan()
 		mRenderer.CreateBuffer(desc, data, mUniformBuffers[i]);
 	}
 
-#ifdef WIN32
-    mTexture = std::make_unique<Renderer::Texture>("resources/textures/chalet.jpg");
-#else
-    mTexture = std::make_unique<Renderer::Texture>(bundlePath("chalet", "jpg"));
-#endif
+    const auto texPath = FileSystemServiceLocator::Service()->GetFilePath("chalet.jpg");
+    mTexture = std::make_unique<Renderer::Texture>(texPath);
 
 	mRenderer.CreateDescriptorSetLayout();
 	const auto setLayout = mRenderer.GetDescriptorSetLayout();

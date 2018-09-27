@@ -5,6 +5,19 @@ project(Engine)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
+macro(append_compile_flags _flags)
+    foreach(source_file ${ARGN})
+        set_property(SOURCE ${source_file} APPEND_STRING PROPERTY COMPILE_FLAGS " ${_flags}")
+    endforeach()
+endmacro(append_compile_flags)
+
+macro(objc_sourcess)
+    foreach(source_file ${ARGN})
+        append_compile_flags("-x objective-c++" ${source_file})
+        message(STATUS "Set Objective-C compilation for ${source_file}")
+    endforeach()
+endmacro()
+
 # generuje interface a install commandy pre sdk modul
 macro(mark_internal_sdk_module_target)
 	target_include_directories(${_target} INTERFACE

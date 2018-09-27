@@ -21,7 +21,6 @@ set(SOURCES
 	Headers/PAL/FileSystem/LowFileSystem.h
 
 # ---- private sources -----
-	Source/LowFileSystem.cpp
 )
 
 if (TARGET_WINDOWS)
@@ -32,8 +31,9 @@ if (TARGET_WINDOWS)
 
 	)
 
-elseif (TARGET_IOS)
+elseif (TARGET_MACOS)
 	set(OBJC_SOURCES
+        Source/iOS/LowFileSystem.cpp
 	)
 
 	list(APPEND SOURCES
@@ -42,6 +42,14 @@ elseif (TARGET_IOS)
 # ---- private sources -----
 		${OBJC_SOURCES}
 	)
+
+	objc_sourcess(${OBJC_SOURCES})
+
+    set(PLATFORM_INTERFACES
+       Source/iOS/Headers
+    )
+
+	include_directories(${PLATFORM_INTERFACES})
 
 elseif (TARGET_ANDROID)
 	list(APPEND SOURCES
@@ -70,4 +78,4 @@ endif()
 add_library(${PROJECT_NAME} ${SOURCES})
 
 target_link_libraries(${PROJECT_NAME})
-target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/Headers/)
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/Headers/ ${PLATFORM_INTERFACES})

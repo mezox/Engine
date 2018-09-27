@@ -36,7 +36,6 @@ set(RENDERER_PRIVATE_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/include/RenderAPIImpl.h
 
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Demo.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/files.h
     # ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector2.h
     # ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector3.h
     # ${CMAKE_CURRENT_SOURCE_DIR}/../Math/Vector4.h
@@ -73,7 +72,6 @@ add_library(
 )
 else()
 set(RENDERER_PRIVATE_SOURCES_OBJC
-	${CMAKE_CURRENT_SOURCE_DIR}/src/files.mm
 	${CMAKE_CURRENT_SOURCE_DIR}/src/WindowImplMac.cpp
 )
 
@@ -89,6 +87,7 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
 	PAL_Graphics
+	PAL_FileSystem
 	glm
 )
 
