@@ -1,9 +1,6 @@
 #include "LowFileSystem.h"
 
 #import <Foundation/Foundation.h>
-#import <PAL/Filesystem/NSFileManager+EngineWritable.h>
-
-#include <iostream>
 
 using namespace PAL::FileSystem;
 
@@ -16,13 +13,73 @@ namespace PAL::FileSystem
     public:
         virtual void Initialize() override
         {
-            std::cout << "Created MacOS FileSystem" << std::endl;
             mFileManager = [NSFileManager defaultManager];
             mWritableFolder = [[[NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) firstObject] stringByAppendingPathComponent:@"sygic"] copy];
             mReadableFolder = [[[NSBundle mainBundle] bundlePath] copy];
             
             NSLog(@"Read-only folder is: %@", mReadableFolder);
             NSLog(@"Writable folder is: %@", mWritableFolder);
+        }
+        
+        virtual FileHandle FileOpen(const std::string& filePath, EFileAccessMode mode) const override
+        {
+            NSString* filePathNS = [NSString stringWithUTF8String:filePath.c_str()];
+            
+            if([mFileManager fileExistsAtPath:filePathNS])
+            {
+                @autoreleasepool
+                {
+                    NSFileHandle *handle{ nil };
+                    
+                    if (mode == EFileAccessMode::Read)
+                    {
+                        handle = [NSFileHandle fileHandleForReadingAtPath:filePathNS];
+                    }
+                    
+                    if (handle)
+                    {
+                        return (FileHandle)CFBridgingRetain(handle);
+                    }
+                }
+            }
+            
+            return nullptr;
+        }
+        
+        virtual uint32_t FileRead(FileHandle handle, void* buffer, uint32_t bytesToRead) const override
+        {
+            NSFileHandle* file = (__bridge NSFileHandle*)handle;
+            
+            uint32_t readBytes{ 0 };
+            
+            @autoreleasepool
+            {
+                NSData* data = [file readDataOfLength:bytesToRead];
+                
+                if( data )
+                {
+                    [data getBytes:buffer length:bytesToRead];
+                    readBytes = (uint32_t)data.length;
+                }
+            }
+            
+            return readBytes;
+        }
+        
+        virtual uint32_t FileGetSize(FileHandle handle) const override
+        {
+            NSFileHandle* file = (__bridge NSFileHandle*)handle;
+            
+            uint64_t nOriginalPos = [file offsetInFile];
+            uint32_t dwRet = (uint32_t)[file seekToEndOfFile];
+            [file seekToFileOffset:nOriginalPos];
+            
+            return dwRet;
+        }
+        
+        virtual void FileClose(FileHandle handle) const override
+        {
+            CFBridgingRelease(handle);
         }
         
         virtual std::string GetFilePath(const std::string& file) const override
@@ -37,8 +94,9 @@ namespace PAL::FileSystem
         
         virtual void DeInitialize() override
         {
-            std::cout << "Destroyed MacOS FileSystem" << std::endl;
             mFileManager = nil;
+            mWritableFolder = nil;
+            mReadableFolder = nil;
         }
         
     private:

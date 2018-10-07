@@ -1,6 +1,6 @@
 #include "Demo.h"
 
-#include "RendererVK.h"
+#include "Buffer.h"
 #include "Texture.h"
 #include "Object3D.h"
 #include "RendererResourceStateVK.h"
@@ -48,11 +48,11 @@ void RENDERER_API DemoApplication::initVulkan()
 
 	mCameraPosition = glm::vec3(0.0f, 1.0f, 3.0f);
     
-    const auto vertSh = FileSystemServiceLocator::Service()->GetFilePath("vert.spv");
-    const auto fragSh = FileSystemServiceLocator::Service()->GetFilePath("frag.spv");
+    //const auto vertSh = FileSystemServiceLocator::Service()->GetFilePath("vert.spv");
+    //const auto fragSh = FileSystemServiceLocator::Service()->GetFilePath("frag.spv");
 
 	mEffect = std::make_unique<Renderer::Effect>();
-	mEffect->Build(vertSh, fragSh);
+	mEffect->Build("vert.spv", "frag.spv");
    
 
 	// -------- Create uniform buffer -----------------

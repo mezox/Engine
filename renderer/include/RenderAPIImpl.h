@@ -18,7 +18,7 @@ namespace Engine
     public:
         // IRenderAPI
         virtual void Initialize(void* window) override;
-        virtual void CreateShader(std::shared_ptr<Renderer::RendererEffect>& gpuEffect, const std::vector<char>& sourceCode) override;
+        virtual void CreateShader(std::shared_ptr<Renderer::RendererEffect>& gpuEffect, const std::vector<uint8_t>& sourceCode) override;
         virtual void CreateTexture(Renderer::Texture& texture) override;
         virtual void CreateBuffer(const Renderer::BufferDesc& desc, const Renderer::BufferData& data, std::shared_ptr<Renderer::Buffer>& bufferObject) override;
         virtual void CopyBuffer(std::shared_ptr<Renderer::Buffer>& srcBuffer, std::shared_ptr<Renderer::Buffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size) override;

@@ -19,8 +19,11 @@ set(SOURCES
 # ---- public headers -----
 	Headers/PAL/FileSystem/FileSystemBase.h
 	Headers/PAL/FileSystem/LowFileSystem.h
+	Headers/PAL/FileSystem/File.h
+	Headers/PAL/FileSystem/FileTypes.h
 
 # ---- private sources -----
+	Source/File.cpp
 )
 
 if (TARGET_WINDOWS)

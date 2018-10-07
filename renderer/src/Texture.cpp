@@ -1,8 +1,8 @@
-#include <Renderer/include/Texture.h>
+#include "Texture.h"
 #include "RenderAPI.h"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <Renderer/include/stb_image.h>
+#include "stb_image.h"
 
 using namespace Renderer;
 

@@ -1,6 +1,5 @@
 #include "SwapChainImpl.h"
 
-#include "RendererVK.h"
 #include "Texture.h"
 #include "RendererResourceStateVK.h"
 

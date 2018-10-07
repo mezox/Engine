@@ -4,19 +4,9 @@ project(PAL_Graphics)
 
 if (${BUILD_SHARED_LIBS})
 	message("Build shared libraries option ON")
-	#add_definitions("-D_GRAPHICSDLL")
-	#add_definitions("-DVK_NO_PROTOTYPES")
 else()
 	add_definitions("-D_NOEXPORT")
 endif()
-
-
-find_path(Vulkan_INCLUDE_DIR NAMES vulkan/vulkan.h PATHS "${VULKAN_SDK}/include")
-find_library(Vulkan_LIBRARY NAMES vulkan PATHS "${VULKAN_SDK}/lib")
-
-message("Vulkan SDK: " ${VULKAN_SDK})
-message("Vulkan include dir: " ${Vulkan_INCLUDE_DIR})
-message("Vulkan library dir: " ${Vulkan_LIBRARY})
 
 find_package(vulkan REQUIRED)
 

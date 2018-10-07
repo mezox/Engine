@@ -11,9 +11,9 @@
 
 #include <PAL/Graphics/LowVK.h>
 
-#include "RendererVK.h"
 #include "Texture.h"
 #include "Effect.h"
+#include <glm/glm.hpp>
 
 namespace Renderer {
     class Buffer;

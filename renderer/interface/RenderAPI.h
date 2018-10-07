@@ -4,6 +4,7 @@
 #include "BufferTypes.h"
 #include <memory>
 #include <vector>
+#include <cstdint>
 
 namespace Renderer
 {
@@ -48,7 +49,7 @@ namespace Engine
         virtual ~IRenderAPI() = default;
         
         virtual void Initialize(void* window) = 0;
-        virtual void CreateShader(std::shared_ptr<Renderer::RendererEffect>& gpuEffect, const std::vector<char>& sourceCode) = 0;
+        virtual void CreateShader(std::shared_ptr<Renderer::RendererEffect>& gpuEffect, const std::vector<uint8_t>& sourceCode) = 0;
         virtual void CreateTexture(Renderer::Texture& texture) = 0;
         virtual void CreateBuffer(const Renderer::BufferDesc& desc, const Renderer::BufferData& data, std::shared_ptr<Renderer::Buffer>& bufferObject) = 0;
         virtual void CopyBuffer(std::shared_ptr<Renderer::Buffer>& srcBuffer, std::shared_ptr<Renderer::Buffer>& dstBuffer, const size_t srcOffset, const size_t dstOffset, const size_t size) = 0;

@@ -10,7 +10,6 @@ endif()
 include_directories (
 	${CMAKE_CURRENT_SOURCE_DIR}/interface/
 	${CMAKE_CURRENT_SOURCE_DIR}/include/
-	${CMAKE_CURRENT_SOURCE_DIR}/../
 )
 
 set(RENDERER_PUBLIC_HEADERS
@@ -26,7 +25,6 @@ set(RENDERER_PUBLIC_HEADERS
 
 set(RENDERER_PRIVATE_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/include/SwapChainImpl.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/RendererVK.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Texture.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Object3D.h
 	${CMAKE_CURRENT_SOURCE_DIR}/include/Effect.h
@@ -47,7 +45,6 @@ set(RENDERER_PRIVATE_HEADERS
 
 set(RENDERER_PRIVATE_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/SwapChainImpl.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/RendererVK.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Demo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Object3D.cpp
@@ -119,6 +116,7 @@ if(TARGET_WIN32)
 					COMMENT "Compiling cube fragment shader"
 					COMMAND ${GLSLANG_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/resources/triangle.frag -o ${EXECUTABLE_OUTPUT_PATH}/Debug/resources/shaders/frag.spv)
 else()
+	set(GLSLANG_VALIDATOR "${VULKAN_SDK}/bin/glslangValidator")
 	find_program(GLSLANG_VALIDATOR names glslangValidator HINTS "${VULKAN_SDK}/bin")
 
 	add_custom_command(#POST_BUILD

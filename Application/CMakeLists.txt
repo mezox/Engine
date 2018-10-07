@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.7)
 project(Application)
 
 
-find_package(vulkan REQUIRED)
-
 # include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/win/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -62,7 +60,7 @@ set_target_properties(Application PROPERTIES
    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/macOS/resources/Info.plist
 )
 
-set_source_files_properties(${RENDERER_RESOURCES} PROPERTIES
+set_source_files_properties(${MACOS_APPLICATION_RESOURCES} PROPERTIES
    MACOSX_PACKAGE_LOCATION "Resources"
 )
 endif()

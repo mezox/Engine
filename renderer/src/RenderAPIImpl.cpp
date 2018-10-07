@@ -137,7 +137,7 @@ void VulkanRenderAPI::Initialize(void* window)
     LowVK::CreateCommandPool(&poolInfo, nullptr, mCmdPool.get());
 }
 
-void VulkanRenderAPI::CreateShader(std::shared_ptr<RendererEffect>& gpuEffect, const std::vector<char>& sourceCode)
+void VulkanRenderAPI::CreateShader(std::shared_ptr<RendererEffect>& gpuEffect, const std::vector<uint8_t>& sourceCode)
 {
     auto vulkanEffect = std::make_shared<EffectVK>();
     
